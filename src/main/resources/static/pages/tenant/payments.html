@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Payment History — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/tenant/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/tenant/pay-rent.html"    class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
+            <a href="/pages/tenant/payments.html"    class="nav-item active"><span class="nav-icon">📋</span> Payment History</a>
+            <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/profile.html"     class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Payment History</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">T</div>
+                <span id="userName">Tenant</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3>All payments</h3>
+                <a href="/pages/tenant/pay-rent.html" class="btn-sm">+ Pay rent</a>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th>Month</th><th>Amount (KES)</th><th>M-Pesa code</th>
+                    <th>Phone</th><th>Date</th><th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="paymentsTable">
+                <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-2)">
+                    Loading...
+                </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    async function loadPayments() {
+        try {
+            const profile  = await TenantSelfAPI.profile();
+            const payments = await PaymentAPI.tenant(profile.id);
+            const tbody    = document.getElementById('paymentsTable');
+
+            if (payments.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6"
+          style="text-align:center;padding:40px;color:var(--text-2)">
+          No payments yet.
+          <a href="/pages/tenant/pay-rent.html" style="color:var(--primary)">Pay your first rent</a>
+        </td></tr>`;
+                return;
+            }
+
+            const badge = {
+                SUCCESS:'badge-success', PENDING:'badge-warning',
+                FAILED:'badge-error',    CANCELLED:'badge-error',
+            };
+
+            tbody.innerHTML = payments.map(p => `
+        <tr>
+          <td>${p.paymentMonth || '—'}</td>
+          <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
+          <td>${p.mpesaCode
+                ? `<code style="background:var(--bg);padding:2px 8px;border-radius:4px">${p.mpesaCode}</code>`
+                : '—'}</td>
+          <td>${p.phoneNumber || '—'}</td>
+          <td>${p.createdAt ? p.createdAt.substring(0,10) : '—'}</td>
+          <td><span class="badge ${badge[p.status]||'badge-info'}">${p.status}</span></td>
+        </tr>
+      `).join('');
+        } catch (err) { console.error(err); }
+    }
+
+    loadPayments();
+</script>
+</body>
+</html>

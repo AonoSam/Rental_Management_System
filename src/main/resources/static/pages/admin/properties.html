@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Properties — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .property-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; margin-bottom:32px; }
+        .property-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+        .property-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+        .property-name { font-size:16px; font-weight:600; }
+        .property-location { font-size:13px; color:var(--text-2); margin-top:2px; }
+        .property-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:14px 0; }
+        .prop-stat { background:var(--bg); border-radius:8px; padding:10px; text-align:center; }
+        .prop-stat-val { font-size:18px; font-weight:700; }
+        .prop-stat-lbl { font-size:11px; color:var(--text-2); margin-top:2px; }
+        .property-actions { display:flex; gap:8px; margin-top:14px; }
+        .btn-outline { background:none; border:1.5px solid var(--border); color:var(--text-1); border-radius:8px; padding:7px 14px; font-size:13px; font-weight:500; cursor:pointer; flex:1; }
+        .btn-outline:hover { border-color:var(--primary); color:var(--primary); }
+        .btn-danger { background:none; border:1.5px solid #FECACA; color:var(--error); border-radius:8px; padding:7px 14px; font-size:13px; font-weight:500; cursor:pointer; }
+        .btn-danger:hover { background:#FEF2F2; }
+
+        /* Modal — z-index 300, sits above drawer */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .modal-overlay.open { opacity:1; pointer-events:all; }
+        .modal { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
+        .modal-overlay.open .modal { transform:translateY(0); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .modal-header h3 { font-size:18px; font-weight:600; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-2); line-height:1; }
+        .modal-footer { display:flex; gap:10px; margin-top:24px; }
+        .modal-footer .btn { flex:1; }
+        select { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        select:focus { border-color:var(--primary); }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+
+        /* Units drawer — z-index 200/201, below modal */
+        .drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .drawer-overlay.open { opacity:1; pointer-events:all; }
+        .drawer { position:fixed; top:0; right:0; height:100%; width:560px; max-width:95vw; background:var(--surface); box-shadow:-4px 0 24px rgba(0,0,0,.1); z-index:201; transform:translateX(100%); transition:transform .3s; overflow-y:auto; }
+        .drawer.open { transform:translateX(0); }
+        .drawer-header { padding:24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+        .drawer-body { padding:24px; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="icon">🏢</div><span>RentEase</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"  class="nav-item active"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/payments.html"    class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Properties</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="propertyCount">Loading...</p>
+            <button class="btn btn-primary" style="width:auto;padding:0 20px"
+                    onclick="openPropertyModal()">+ Add property</button>
+        </div>
+
+        <div class="property-grid" id="propertyGrid">
+            <div class="empty-state"><div class="icon">🏠</div><p>Loading properties...</p></div>
+        </div>
+    </main>
+</div>
+
+<!-- ── Add / Edit Property Modal ── -->
+<div class="modal-overlay" id="propertyModal" onclick="handlePropertyModalBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add property</h3>
+            <button class="modal-close" onclick="closePropertyModal()">×</button>
+        </div>
+        <div class="form-group">
+            <label>Property name</label>
+            <div class="input-wrap">
+                <span class="icon">🏢</span>
+                <input type="text" id="propName" placeholder="e.g. Sunset Apartments"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Location</label>
+            <div class="input-wrap">
+                <span class="icon">📍</span>
+                <input type="text" id="propLocation" placeholder="e.g. Westlands, Nairobi"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description (optional)</label>
+            <div class="input-wrap">
+                <span class="icon">📝</span>
+                <input type="text" id="propDescription" placeholder="Brief description"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Status</label>
+            <select id="propStatus">
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+            </select>
+        </div>
+        <div id="propAlert" class="alert"></div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="savePropBtn" onclick="saveProperty()">
+                <span class="btn-text">Save property</span>
+                <div class="btn-spinner"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Units Drawer ── -->
+<!-- NO onclick on drawer-overlay — prevents activePropertyId being wiped when unit modal opens -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="unitsDrawer">
+    <div class="drawer-header">
+        <div>
+            <h3 id="drawerTitle">Units</h3>
+            <p style="font-size:13px;color:var(--text-2);margin-top:2px" id="drawerSubtitle"></p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-sm" onclick="openUnitModal()">+ Add unit</button>
+            <button class="modal-close" onclick="closeDrawer()">×</button>
+        </div>
+    </div>
+    <div class="drawer-body">
+        <table>
+            <thead>
+            <tr>
+                <th>Unit</th><th>Category</th><th>Rent (KES)</th><th>Floor</th><th>Status</th><th></th>
+            </tr>
+            </thead>
+            <tbody id="unitsTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ── Add / Edit Unit Modal ── -->
+<!-- z-index 300 so it sits above the drawer (201) -->
+<div class="modal-overlay" id="unitModal" onclick="handleUnitModalBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="unitModalTitle">Add unit</h3>
+            <button class="modal-close" onclick="closeUnitModal()">×</button>
+        </div>
+        <div class="form-group">
+            <label>House / unit number</label>
+            <div class="input-wrap">
+                <span class="icon">🔢</span>
+                <input type="text" id="unitNumber" placeholder="e.g. A-101"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Category</label>
+            <select id="unitCategory">
+                <option value="BEDSITTER">Bedsitter</option>
+                <option value="SINGLE_ROOM">Single room</option>
+                <option value="ONE_BEDROOM">1 Bedroom</option>
+                <option value="TWO_BEDROOM">2 Bedroom</option>
+                <option value="THREE_BEDROOM">3 Bedroom</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Monthly rent (KES)</label>
+            <div class="input-wrap">
+                <span class="icon">💰</span>
+                <input type="number" id="unitRent" placeholder="e.g. 15000"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Floor</label>
+            <div class="input-wrap">
+                <span class="icon">🏗</span>
+                <input type="number" id="unitFloor" placeholder="0 = ground floor" value="0"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Status</label>
+            <select id="unitStatus">
+                <option value="VACANT">Vacant</option>
+                <option value="OCCUPIED">Occupied</option>
+                <option value="UNDER_MAINTENANCE">Under maintenance</option>
+            </select>
+        </div>
+        <div id="unitAlert" class="alert"></div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="saveUnitBtn" onclick="saveUnit()">
+                <span class="btn-text">Save unit</span>
+                <div class="btn-spinner"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let editingPropertyId = null;
+    let editingUnitId     = null;
+    let activePropertyId  = null;
+
+    // ── Load properties ──────────────────────────────────
+    async function loadProperties() {
+        try {
+            const properties = await PropertyAPI.list();
+            const grid = document.getElementById('propertyGrid');
+            document.getElementById('propertyCount').textContent =
+                `${properties.length} propert${properties.length === 1 ? 'y' : 'ies'}`;
+
+            if (properties.length === 0) {
+                grid.innerHTML = `<div class="empty-state">
+                    <div class="icon">🏠</div>
+                    <p>No properties yet. Add your first one!</p>
+                </div>`;
+                return;
+            }
+
+            grid.innerHTML = properties.map(p => `
+                <div class="property-card">
+                    <div class="property-card-header">
+                        <div>
+                            <div class="property-name">${p.name}</div>
+                            <div class="property-location">📍 ${p.location}</div>
+                        </div>
+                        <span class="badge ${p.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}">
+                            ${p.status}
+                        </span>
+                    </div>
+                    ${p.description
+                ? `<p style="font-size:13px;color:var(--text-2);margin-bottom:12px">${p.description}</p>`
+                : ''}
+                    <div class="property-stats">
+                        <div class="prop-stat">
+                            <div class="prop-stat-val">${p.totalUnits}</div>
+                            <div class="prop-stat-lbl">Total units</div>
+                        </div>
+                        <div class="prop-stat">
+                            <div class="prop-stat-val" style="color:var(--accent)">${p.occupiedUnits}</div>
+                            <div class="prop-stat-lbl">Occupied</div>
+                        </div>
+                        <div class="prop-stat">
+                            <div class="prop-stat-val" style="color:var(--warning)">${p.vacantUnits}</div>
+                            <div class="prop-stat-lbl">Vacant</div>
+                        </div>
+                    </div>
+                    <div class="property-actions">
+                        <button class="btn-outline"
+                            data-id="${p.id}"
+                            data-name="${p.name}"
+                            data-total="${p.totalUnits}"
+                            onclick="handleManageUnits(this)">
+                            🏠 Manage units
+                        </button>
+                        <button class="btn-outline"
+                            data-id="${p.id}"
+                            data-name="${p.name}"
+                            data-location="${p.location}"
+                            data-description="${p.description || ''}"
+                            data-status="${p.status}"
+                            onclick="handleEditProperty(this)">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn-danger"
+                            data-id="${p.id}"
+                            onclick="handleDeleteProperty(this)">🗑</button>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // ── Property card handlers ───────────────────────────
+    function handleManageUnits(btn) {
+        openUnitsDrawer(
+            parseInt(btn.dataset.id),
+            btn.dataset.name,
+            parseInt(btn.dataset.total)
+        );
+    }
+
+    function handleEditProperty(btn) {
+        editProperty(
+            parseInt(btn.dataset.id),
+            btn.dataset.name,
+            btn.dataset.location,
+            btn.dataset.description,
+            btn.dataset.status
+        );
+    }
+
+    function handleDeleteProperty(btn) {
+        deleteProperty(parseInt(btn.dataset.id));
+    }
+
+    // ── Property modal ───────────────────────────────────
+    function openPropertyModal() {
+        editingPropertyId = null;
+        document.getElementById('modalTitle').textContent = 'Add property';
+        document.getElementById('propName').value         = '';
+        document.getElementById('propLocation').value     = '';
+        document.getElementById('propDescription').value  = '';
+        document.getElementById('propStatus').value       = 'ACTIVE';
+        document.getElementById('propAlert').className    = 'alert';
+        document.getElementById('propertyModal').classList.add('open');
+    }
+
+    function editProperty(id, name, location, description, status) {
+        editingPropertyId = id;
+        document.getElementById('modalTitle').textContent = 'Edit property';
+        document.getElementById('propName').value         = name;
+        document.getElementById('propLocation').value     = location;
+        document.getElementById('propDescription').value  = description;
+        document.getElementById('propStatus').value       = status;
+        document.getElementById('propAlert').className    = 'alert';
+        document.getElementById('propertyModal').classList.add('open');
+    }
+
+    function closePropertyModal() {
+        document.getElementById('propertyModal').classList.remove('open');
+    }
+
+    function handlePropertyModalBackdrop(event) {
+        if (event.target === document.getElementById('propertyModal')) {
+            closePropertyModal();
+        }
+    }
+
+    async function saveProperty() {
+        const btn   = document.getElementById('savePropBtn');
+        const alert = document.getElementById('propAlert');
+        const body  = {
+            name:        document.getElementById('propName').value.trim(),
+            location:    document.getElementById('propLocation').value.trim(),
+            description: document.getElementById('propDescription').value.trim(),
+            status:      document.getElementById('propStatus').value,
+        };
+
+        if (!body.name || !body.location) {
+            alert.textContent = 'Name and location are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+        try {
+            if (editingPropertyId) {
+                await PropertyAPI.update(editingPropertyId, body);
+            } else {
+                await PropertyAPI.create(body);
+            }
+            closePropertyModal();
+            loadProperties();
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    async function deleteProperty(id) {
+        if (!confirm('Delete this property and all its units?')) return;
+        try {
+            await PropertyAPI.delete(id);
+            loadProperties();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Units drawer ─────────────────────────────────────
+    async function openUnitsDrawer(propertyId, propertyName, totalUnits) {
+        activePropertyId = propertyId;
+        document.getElementById('drawerTitle').textContent    = propertyName + ' — Units';
+        document.getElementById('drawerSubtitle').textContent = `${totalUnits} unit(s)`;
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('unitsDrawer').classList.add('open');
+        await loadUnits(propertyId);
+    }
+
+    function closeDrawer() {
+        document.getElementById('drawerOverlay').classList.remove('open');
+        document.getElementById('unitsDrawer').classList.remove('open');
+        activePropertyId = null;
+    }
+
+    async function loadUnits(propertyId) {
+        try {
+            const units = await PropertyAPI.getUnits(propertyId);
+            const tbody = document.getElementById('unitsTableBody');
+
+            if (units.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6"
+                    style="text-align:center;padding:32px;color:var(--text-2)">
+                    No units yet. Click "+ Add unit" to add one.
+                </td></tr>`;
+                return;
+            }
+
+            const statusBadge = {
+                VACANT:            'badge-warning',
+                OCCUPIED:          'badge-success',
+                UNDER_MAINTENANCE: 'badge-error',
+            };
+
+            tbody.innerHTML = units.map(u => `
+                <tr>
+                    <td><strong>${u.houseNumber}</strong></td>
+                    <td>${u.category.replace(/_/g,' ')}</td>
+                    <td>KES ${Number(u.rentAmount).toLocaleString()}</td>
+                    <td>${u.floor === 0 ? 'G' : u.floor}</td>
+                    <td>
+                        <span class="badge ${statusBadge[u.status] || 'badge-info'}">
+                            ${u.status.replace(/_/g,' ')}
+                        </span>
+                    </td>
+                    <td style="display:flex;gap:6px">
+                        <button class="btn-outline" style="padding:4px 10px;font-size:12px"
+                            data-id="${u.id}"
+                            data-number="${u.houseNumber}"
+                            data-category="${u.category}"
+                            data-rent="${u.rentAmount}"
+                            data-floor="${u.floor}"
+                            data-status="${u.status}"
+                            onclick="handleEditUnit(this)">✏️</button>
+                        <button class="btn-danger" style="padding:4px 10px;font-size:12px"
+                            data-id="${u.id}"
+                            onclick="handleDeleteUnit(this)">🗑</button>
+                    </td>
+                </tr>
+            `).join('');
+
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Unit table handlers ──────────────────────────────
+    function handleEditUnit(btn) {
+        editUnit(
+            parseInt(btn.dataset.id),
+            btn.dataset.number,
+            btn.dataset.category,
+            parseFloat(btn.dataset.rent),
+            parseInt(btn.dataset.floor),
+            btn.dataset.status
+        );
+    }
+
+    function handleDeleteUnit(btn) {
+        deleteUnit(parseInt(btn.dataset.id));
+    }
+
+    // ── Unit modal ───────────────────────────────────────
+    function openUnitModal() {
+        editingUnitId = null;
+        document.getElementById('unitModalTitle').textContent = 'Add unit';
+        document.getElementById('unitNumber').value           = '';
+        document.getElementById('unitCategory').value         = 'ONE_BEDROOM';
+        document.getElementById('unitRent').value             = '';
+        document.getElementById('unitFloor').value            = '0';
+        document.getElementById('unitStatus').value           = 'VACANT';
+        document.getElementById('unitAlert').className        = 'alert';
+        document.getElementById('unitModal').classList.add('open');
+    }
+
+    function editUnit(id, number, category, rent, floor, status) {
+        editingUnitId = id;
+        document.getElementById('unitModalTitle').textContent = 'Edit unit';
+        document.getElementById('unitNumber').value           = number;
+        document.getElementById('unitCategory').value         = category;
+        document.getElementById('unitRent').value             = rent;
+        document.getElementById('unitFloor').value            = floor;
+        document.getElementById('unitStatus').value           = status;
+        document.getElementById('unitAlert').className        = 'alert';
+        document.getElementById('unitModal').classList.add('open');
+    }
+
+    function closeUnitModal() {
+        // IMPORTANT: only close the modal, never touch activePropertyId here
+        document.getElementById('unitModal').classList.remove('open');
+    }
+
+    function handleUnitModalBackdrop(event) {
+        // Only close when clicking the dark backdrop, not the white modal card
+        if (event.target === document.getElementById('unitModal')) {
+            closeUnitModal();
+        }
+    }
+
+    async function saveUnit() {
+        const btn   = document.getElementById('saveUnitBtn');
+        const alert = document.getElementById('unitAlert');
+        const body  = {
+            houseNumber: document.getElementById('unitNumber').value.trim(),
+            category:    document.getElementById('unitCategory').value,
+            rentAmount:  parseFloat(document.getElementById('unitRent').value),
+            floor:       parseInt(document.getElementById('unitFloor').value),
+            status:      document.getElementById('unitStatus').value,
+        };
+
+        if (!body.houseNumber || !body.rentAmount) {
+            alert.textContent = 'Unit number and rent are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        if (!activePropertyId) {
+            alert.textContent = 'Session lost — close this modal, close the drawer, and reopen it.';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+        try {
+            if (editingUnitId) {
+                await PropertyAPI.updateUnit(editingUnitId, body);
+            } else {
+                await PropertyAPI.createUnit(activePropertyId, body);
+            }
+            closeUnitModal();
+            await loadUnits(activePropertyId);
+            loadProperties();
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    async function deleteUnit(unitId) {
+        if (!confirm('Delete this unit?')) return;
+        try {
+            await PropertyAPI.deleteUnit(unitId);
+            await loadUnits(activePropertyId);
+            loadProperties();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Init ─────────────────────────────────────────────
+    loadProperties();
+</script>
+</body>
+</html>

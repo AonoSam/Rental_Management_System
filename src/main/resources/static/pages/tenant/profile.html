@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>My Profile — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .profile-header { background:var(--primary); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:24px; display:flex; align-items:center; gap:20px; }
+        .profile-avatar { width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; flex-shrink:0; }
+        .profile-name   { font-size:22px; font-weight:700; }
+        .profile-role   { color:rgba(255,255,255,.75); font-size:14px; margin-top:4px; }
+        .info-card      { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:16px; }
+        .info-card-title{ padding:16px 20px; font-size:14px; font-weight:600; border-bottom:1px solid var(--border); background:var(--bg); }
+        .info-row       { display:flex; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); font-size:14px; }
+        .info-row:last-child { border-bottom:none; }
+        .info-label     { color:var(--text-2); }
+        .info-value     { font-weight:500; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/tenant/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/tenant/pay-rent.html"    class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
+            <a href="/pages/tenant/payments.html"    class="nav-item"><span class="nav-icon">📋</span> Payment History</a>
+            <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/profile.html"     class="nav-item active"><span class="nav-icon">👤</span> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>My Profile</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">T</div>
+                <span id="userName">Tenant</span>
+            </div>
+        </div>
+
+        <div class="profile-header">
+            <div class="profile-avatar" id="profileAvatar">T</div>
+            <div>
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-role">Tenant</div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-card-title">👤 Personal information</div>
+            <div class="info-row">
+                <span class="info-label">Full name</span>
+                <span class="info-value" id="infoName">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value" id="infoEmail">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Phone</span>
+                <span class="info-value" id="infoPhone">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">National ID</span>
+                <span class="info-value" id="infoNationalId">—</span>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-card-title">🏠 Unit information</div>
+            <div class="info-row">
+                <span class="info-label">Property</span>
+                <span class="info-value" id="infoProperty">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Unit number</span>
+                <span class="info-value" id="infoUnit">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Category</span>
+                <span class="info-value" id="infoCategory">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Monthly rent</span>
+                <span class="info-value" id="infoRent">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Lease start</span>
+                <span class="info-value" id="infoLeaseStart">—</span>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-card-title">🆘 Emergency contact</div>
+            <div class="info-row">
+                <span class="info-label">Name</span>
+                <span class="info-value" id="infoEmergencyName">—</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Phone</span>
+                <span class="info-value" id="infoEmergencyPhone">—</span>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    async function loadProfile() {
+        try {
+            const t = await TenantSelfAPI.profile();
+
+            document.getElementById('userAvatar').textContent    = t.name[0].toUpperCase();
+            document.getElementById('userName').textContent      = t.name;
+            document.getElementById('profileAvatar').textContent = t.name[0].toUpperCase();
+            document.getElementById('profileName').textContent   = t.name;
+
+            document.getElementById('infoName').textContent       = t.name       || '—';
+            document.getElementById('infoEmail').textContent      = t.email      || '—';
+            document.getElementById('infoPhone').textContent      = t.phone      || '—';
+            document.getElementById('infoNationalId').textContent = t.nationalId || '—';
+
+            document.getElementById('infoProperty').textContent  = t.propertyName || '—';
+            document.getElementById('infoUnit').textContent      = t.unitNumber   || '—';
+            document.getElementById('infoCategory').textContent  =
+                t.category ? t.category.replace(/_/g,' ') : '—';
+            document.getElementById('infoRent').textContent      =
+                t.rentAmount ? 'KES ' + Number(t.rentAmount).toLocaleString() : '—';
+            document.getElementById('infoLeaseStart').textContent = t.leaseStart  || '—';
+
+            document.getElementById('infoEmergencyName').textContent  = t.emergencyContact || '—';
+            document.getElementById('infoEmergencyPhone').textContent = t.emergencyPhone   || '—';
+
+        } catch (err) { console.error(err); }
+    }
+
+    loadProfile();
+</script>
+</body>
+</html>

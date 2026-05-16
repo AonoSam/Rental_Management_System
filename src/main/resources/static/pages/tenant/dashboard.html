@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>My Dashboard — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .welcome-card { background:var(--primary); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; }
+        .welcome-card h2 { font-size:22px; font-weight:700; margin-bottom:4px; }
+        .welcome-card p  { color:rgba(255,255,255,.8); font-size:14px; }
+        .welcome-icon    { font-size:48px; }
+        .rent-status-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px; }
+        .rent-status-card h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
+        .rent-row  { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; }
+        .rent-row:last-child { border-bottom:none; }
+        .rent-label { color:var(--text-2); }
+        .rent-value { font-weight:600; }
+        .quick-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
+        .action-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; cursor:pointer; text-decoration:none; transition:all .15s; display:block; }
+        .action-card:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:var(--shadow); }
+        .action-icon { font-size:32px; margin-bottom:8px; }
+        .action-label { font-size:13px; font-weight:600; color:var(--text-1); }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/tenant/dashboard.html"   class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/tenant/pay-rent.html"    class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
+            <a href="/pages/tenant/payments.html"    class="nav-item"><span class="nav-icon">📋</span> Payment History</a>
+            <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/profile.html"     class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Dashboard</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">T</div>
+                <span id="userName">Tenant</span>
+            </div>
+        </div>
+
+        <div class="welcome-card">
+            <div>
+                <h2 id="welcomeName">Welcome back!</h2>
+                <p id="welcomeUnit">Loading your details...</p>
+            </div>
+            <div class="welcome-icon">🏠</div>
+        </div>
+
+        <div class="stat-grid" style="margin-bottom:24px">
+            <div class="stat-card">
+                <div class="stat-icon amber">💰</div>
+                <div>
+                    <div class="stat-label">Monthly rent</div>
+                    <div class="stat-value" id="monthlyRent">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">✅</div>
+                <div>
+                    <div class="stat-label">This month</div>
+                    <div class="stat-value" id="thisMonthStatus">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">📋</div>
+                <div>
+                    <div class="stat-label">Total payments</div>
+                    <div class="stat-value" id="totalPayments">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">💵</div>
+                <div>
+                    <div class="stat-label">Total paid (KES)</div>
+                    <div class="stat-value" id="totalPaid">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rent-status-card">
+            <h3>🏠 My unit details</h3>
+            <div class="rent-row">
+                <span class="rent-label">Property</span>
+                <span class="rent-value" id="detailProperty">—</span>
+            </div>
+            <div class="rent-row">
+                <span class="rent-label">Unit number</span>
+                <span class="rent-value" id="detailUnit">—</span>
+            </div>
+            <div class="rent-row">
+                <span class="rent-label">Category</span>
+                <span class="rent-value" id="detailCategory">—</span>
+            </div>
+            <div class="rent-row">
+                <span class="rent-label">Monthly rent</span>
+                <span class="rent-value" id="detailRent">—</span>
+            </div>
+            <div class="rent-row">
+                <span class="rent-label">Lease started</span>
+                <span class="rent-value" id="detailLeaseStart">—</span>
+            </div>
+        </div>
+
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Quick actions</h3>
+        <div class="quick-actions">
+            <a href="/pages/tenant/pay-rent.html" class="action-card">
+                <div class="action-icon">💳</div>
+                <div class="action-label">Pay Rent</div>
+            </a>
+            <a href="/pages/tenant/payments.html" class="action-card">
+                <div class="action-icon">📋</div>
+                <div class="action-label">Payment History</div>
+            </a>
+            <a href="/pages/tenant/maintenance.html" class="action-card">
+                <div class="action-icon">🔧</div>
+                <div class="action-label">Report Issue</div>
+            </a>
+            <a href="/pages/tenant/profile.html" class="action-card">
+                <div class="action-icon">👤</div>
+                <div class="action-label">My Profile</div>
+            </a>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    async function loadDashboard() {
+        try {
+            const data = await TenantSelfAPI.dashboard();
+            const t    = data.tenant;
+
+            document.getElementById('welcomeName').textContent =
+                'Welcome back, ' + t.name.split(' ')[0] + '!';
+            document.getElementById('welcomeUnit').textContent =
+                t.unitNumber ? `${t.propertyName} · Unit ${t.unitNumber}` : 'No unit assigned yet';
+
+            document.getElementById('monthlyRent').textContent =
+                t.rentAmount ? 'KES ' + Number(t.rentAmount).toLocaleString() : '—';
+            document.getElementById('thisMonthStatus').textContent =
+                data.paidThisMonth ? '✅ Paid' : '⚠️ Unpaid';
+            document.getElementById('totalPayments').textContent = data.totalPayments;
+            document.getElementById('totalPaid').textContent =
+                'KES ' + Number(data.totalPaid).toLocaleString();
+
+            document.getElementById('detailProperty').textContent  = t.propertyName || '—';
+            document.getElementById('detailUnit').textContent      = t.unitNumber    || '—';
+            document.getElementById('detailCategory').textContent  =
+                t.category ? t.category.replace(/_/g,' ') : '—';
+            document.getElementById('detailRent').textContent      =
+                t.rentAmount ? 'KES ' + Number(t.rentAmount).toLocaleString() : '—';
+            document.getElementById('detailLeaseStart').textContent = t.leaseStart   || '—';
+
+        } catch (err) {
+            console.error('Dashboard load error:', err);
+        }
+    }
+
+    loadDashboard();
+</script>
+</body>
+</html>

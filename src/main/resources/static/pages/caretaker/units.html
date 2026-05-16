@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Units — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); transition:all .15s; }
+        .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+        .units-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+        .unit-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+        .unit-top  { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+        .unit-number { font-size:18px; font-weight:700; }
+        .unit-property { font-size:13px; color:var(--text-2); margin-top:2px; }
+        .unit-details { font-size:13px; color:var(--text-2); margin-bottom:12px; }
+        .unit-details span { display:block; margin-bottom:3px; }
+        .unit-tenant { background:var(--primary-light); border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
+        .unit-tenant .name { font-weight:600; color:var(--primary); }
+        .unit-tenant .phone { color:var(--text-2); margin-top:2px; }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); grid-column:1/-1; }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/caretaker/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/caretaker/units.html"       class="nav-item active"><span class="nav-icon">🏠</span> Units</a>
+            <a href="/pages/caretaker/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/caretaker/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Units</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">C</div>
+                <span id="userName">Caretaker</span>
+            </div>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="ALL"              onclick="setFilter(this)">All</button>
+            <button class="filter-btn"        data-filter="VACANT"           onclick="setFilter(this)">Vacant</button>
+            <button class="filter-btn"        data-filter="OCCUPIED"         onclick="setFilter(this)">Occupied</button>
+            <button class="filter-btn"        data-filter="UNDER_MAINTENANCE" onclick="setFilter(this)">Under maintenance</button>
+        </div>
+
+        <p style="color:var(--text-2);font-size:14px;margin-bottom:16px" id="unitCount">Loading...</p>
+        <div class="units-grid" id="unitsGrid">
+            <div class="empty-state"><div class="icon">🏠</div><p>Loading units...</p></div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allUnits      = [];
+    let allTenants    = [];
+    let currentFilter = 'ALL';
+
+    const statusBadge = {
+        VACANT:            'badge-warning',
+        OCCUPIED:          'badge-success',
+        UNDER_MAINTENANCE: 'badge-error',
+    };
+
+    async function loadData() {
+        try {
+            const [properties, tenants] = await Promise.all([
+                PropertyAPI.list(),
+                TenantAPI.list(),
+            ]);
+            allTenants = tenants;
+
+            // Flatten all units from all properties
+            const unitPromises = properties.map(p => PropertyAPI.getUnits(p.id));
+            const unitArrays   = await Promise.all(unitPromises);
+            allUnits = unitArrays.flat();
+            renderUnits();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderUnits() {
+        const grid = document.getElementById('unitsGrid');
+        const list = currentFilter === 'ALL'
+            ? allUnits
+            : allUnits.filter(u => u.status === currentFilter);
+
+        document.getElementById('unitCount').textContent =
+            `${list.length} unit${list.length !== 1 ? 's' : ''}`;
+
+        if (list.length === 0) {
+            grid.innerHTML = `<div class="empty-state">
+        <div class="icon">🏠</div><p>No units found.</p>
+      </div>`;
+            return;
+        }
+
+        grid.innerHTML = list.map(u => {
+            const tenant = allTenants.find(t => t.unitId === u.id && t.status === 'ACTIVE');
+            return `
+        <div class="unit-card">
+          <div class="unit-top">
+            <div>
+              <div class="unit-number">Unit ${u.houseNumber}</div>
+              <div class="unit-property">🏢 ${u.propertyName}</div>
+            </div>
+            <span class="badge ${statusBadge[u.status]||'badge-info'}">
+              ${u.status.replace(/_/g,' ')}
+            </span>
+          </div>
+          <div class="unit-details">
+            <span>🛏 ${u.category.replace(/_/g,' ')}</span>
+            <span>🏗 Floor ${u.floor === 0 ? 'G' : u.floor}</span>
+            <span>💰 KES ${Number(u.rentAmount).toLocaleString()}/mo</span>
+          </div>
+          ${tenant ? `
+            <div class="unit-tenant">
+              <div class="name">👤 ${tenant.name}</div>
+              <div class="phone">📱 ${tenant.phone || '—'}</div>
+            </div>` : ''}
+          ${u.status === 'VACANT' ? `
+            <a href="/pages/caretaker/tenants.html"
+               class="btn btn-primary"
+               style="font-size:13px;height:38px;text-decoration:none;display:flex;align-items:center;justify-content:center;border-radius:8px">
+              + Assign tenant
+            </a>` : ''}
+        </div>
+      `;
+        }).join('');
+    }
+
+    function setFilter(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderUnits();
+    }
+
+    loadData();
+</script>
+</body>
+</html>

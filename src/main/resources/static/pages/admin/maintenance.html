@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Maintenance — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); transition:all .15s; }
+        .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+
+        /* Modal */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .modal-overlay.open { opacity:1; pointer-events:all; }
+        .modal { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
+        .modal-overlay.open .modal { transform:translateY(0); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .modal-header h3 { font-size:18px; font-weight:600; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-2); }
+        select { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        select:focus { border-color:var(--primary); }
+        textarea { width:100%; padding:12px 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; font-family:inherit; resize:vertical; outline:none; min-height:90px; }
+        textarea:focus { border-color:var(--primary); }
+
+        /* Request cards */
+        .requests-grid { display:grid; gap:12px; }
+        .request-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+        .request-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
+        .request-issue { font-size:15px; font-weight:600; }
+        .request-meta { font-size:13px; color:var(--text-2); margin-top:4px; display:flex; flex-wrap:wrap; gap:10px; }
+        .request-meta span { display:flex; align-items:center; gap:4px; }
+        .request-desc { font-size:13px; color:var(--text-2); margin-top:8px; }
+        .request-notes { background:var(--bg); border-radius:8px; padding:10px 12px; font-size:13px; margin-top:10px; color:var(--text-2); border-left:3px solid var(--primary); }
+        .request-actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+        .btn-sm-outline { padding:6px 14px; border-radius:8px; border:1.5px solid var(--border); background:none; font-size:13px; font-weight:500; cursor:pointer; color:var(--text-1); }
+        .btn-sm-outline:hover { border-color:var(--primary); color:var(--primary); }
+        .btn-sm-green { padding:6px 14px; border-radius:8px; border:1.5px solid #BBF7D0; background:#F0FDF4; font-size:13px; font-weight:500; cursor:pointer; color:#16A34A; }
+        .btn-sm-green:hover { background:#DCFCE7; }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+
+        .priority-LOW    { color:#6B7280; font-weight:500; }
+        .priority-MEDIUM { color:#D97706; font-weight:500; }
+        .priority-HIGH   { color:#DC2626; font-weight:500; }
+        .priority-URGENT { color:#7C3AED; font-weight:500; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"  class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/payments.html"    class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html" class="nav-item active"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Maintenance</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid" style="margin-bottom:24px">
+            <div class="stat-card">
+                <div class="stat-icon amber">⏳</div>
+                <div>
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value" id="statPending">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">🔨</div>
+                <div>
+                    <div class="stat-label">In progress</div>
+                    <div class="stat-value" id="statInProgress">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">✅</div>
+                <div>
+                    <div class="stat-label">Completed</div>
+                    <div class="stat-value" id="statCompleted">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="requestCount">Loading...</p>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <button class="filter-btn active" data-filter="ALL"         onclick="setFilter(this)">All</button>
+            <button class="filter-btn"        data-filter="PENDING"     onclick="setFilter(this)">Pending</button>
+            <button class="filter-btn"        data-filter="IN_PROGRESS" onclick="setFilter(this)">In progress</button>
+            <button class="filter-btn"        data-filter="COMPLETED"   onclick="setFilter(this)">Completed</button>
+            <button class="filter-btn"        data-filter="CANCELLED"   onclick="setFilter(this)">Cancelled</button>
+        </div>
+
+        <div class="requests-grid" id="requestsGrid">
+            <div class="empty-state"><div class="icon">🔧</div><p>Loading...</p></div>
+        </div>
+    </main>
+</div>
+
+<!-- Update Status Modal -->
+<div class="modal-overlay" id="statusModal" onclick="handleModalBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Update request</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <p id="modalIssueTitle" style="font-size:15px;font-weight:600;margin-bottom:4px"></p>
+        <p id="modalTenantName" style="font-size:13px;color:var(--text-2);margin-bottom:20px"></p>
+
+        <div class="form-group">
+            <label>Update status</label>
+            <select id="newStatus">
+                <option value="PENDING">Pending</option>
+                <option value="IN_PROGRESS">In progress</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Note to tenant <span style="color:var(--text-2);font-size:12px">(optional)</span></label>
+            <textarea id="adminNote" placeholder="e.g. Technician will visit tomorrow at 10am..."></textarea>
+        </div>
+        <div id="statusAlert" class="alert"></div>
+        <div style="margin-top:20px">
+            <button class="btn btn-primary" id="updateBtn" onclick="updateStatus()">
+                <span class="btn-text">Save update</span>
+                <div class="btn-spinner"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allRequests   = [];
+    let currentFilter = 'ALL';
+    let editingId     = null;
+
+    const statusBadge = {
+        PENDING:     'badge-warning',
+        IN_PROGRESS: 'badge-info',
+        COMPLETED:   'badge-success',
+        CANCELLED:   'badge-error',
+    };
+
+    // ── Load stats ───────────────────────────────────────
+    async function loadStats() {
+        try {
+            const stats = await MaintenanceAPI.stats();
+            document.getElementById('statPending').textContent    = stats.pending;
+            document.getElementById('statInProgress').textContent = stats.inProgress;
+            document.getElementById('statCompleted').textContent  = stats.completed;
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Load requests ────────────────────────────────────
+    async function loadRequests() {
+        try {
+            allRequests = await MaintenanceAPI.list();
+            renderRequests();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderRequests() {
+        const grid = document.getElementById('requestsGrid');
+        const list = currentFilter === 'ALL'
+            ? allRequests
+            : allRequests.filter(r => r.status === currentFilter);
+
+        document.getElementById('requestCount').textContent =
+            `${list.length} request${list.length !== 1 ? 's' : ''}`;
+
+        if (list.length === 0) {
+            grid.innerHTML = `<div class="empty-state">
+        <div class="icon">🔧</div>
+        <p>No ${currentFilter === 'ALL' ? '' : currentFilter.toLowerCase().replace('_',' ')} requests.</p>
+      </div>`;
+            return;
+        }
+
+        grid.innerHTML = list.map(r => `
+      <div class="request-card">
+        <div class="request-top">
+          <div>
+            <div class="request-issue">${r.issue}</div>
+            <div class="request-meta">
+              <span>👤 ${r.tenantName}</span>
+              <span>🏠 ${r.unitNumber ? r.propertyName + ' · ' + r.unitNumber : '—'}</span>
+              <span>📅 ${r.createdAt ? r.createdAt.substring(0,10) : '—'}</span>
+              ${r.priority
+            ? `<span class="priority-${r.priority}">⚡ ${r.priority}</span>`
+            : ''}
+            </div>
+          </div>
+          <span class="badge ${statusBadge[r.status]||'badge-info'}">
+            ${r.status.replace(/_/g,' ')}
+          </span>
+        </div>
+
+        ${r.description
+            ? `<div class="request-desc">${r.description}</div>`
+            : ''}
+
+        ${r.notes
+            ? `<div class="request-notes">💬 Your note: ${r.notes}</div>`
+            : ''}
+
+        ${r.resolvedAt
+            ? `<p style="font-size:12px;color:var(--success);margin-top:8px">
+              ✅ Resolved on ${r.resolvedAt.substring(0,10)}</p>`
+            : ''}
+
+        <div class="request-actions">
+          ${r.status !== 'COMPLETED' && r.status !== 'CANCELLED' ? `
+            ${r.status === 'PENDING' ? `
+              <button class="btn-sm-outline"
+                data-id="${r.id}"
+                data-issue="${r.issue}"
+                data-tenant="${r.tenantName}"
+                data-status="IN_PROGRESS"
+                onclick="quickUpdate(this)">
+                🔨 Mark in progress
+              </button>` : ''}
+            <button class="btn-sm-green"
+              data-id="${r.id}"
+              data-issue="${r.issue}"
+              data-tenant="${r.tenantName}"
+              data-status="COMPLETED"
+              onclick="quickUpdate(this)">
+              ✅ Mark completed
+            </button>
+          ` : ''}
+          <button class="btn-sm-outline"
+            data-id="${r.id}"
+            data-issue="${r.issue}"
+            data-tenant="${r.tenantName}"
+            data-current-status="${r.status}"
+            onclick="openModal(this)">
+            ✏️ Update
+          </button>
+        </div>
+      </div>
+    `).join('');
+    }
+
+    function setFilter(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderRequests();
+    }
+
+    // ── Quick status update (no modal) ───────────────────
+    async function quickUpdate(btn) {
+        const id     = parseInt(btn.dataset.id);
+        const status = btn.dataset.status;
+        try {
+            await MaintenanceAPI.updateStatus(id, { status });
+            await loadRequests();
+            await loadStats();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Modal update (with note) ─────────────────────────
+    function openModal(btn) {
+        editingId = parseInt(btn.dataset.id);
+        document.getElementById('modalIssueTitle').textContent = btn.dataset.issue;
+        document.getElementById('modalTenantName').textContent = '👤 ' + btn.dataset.tenant;
+        document.getElementById('newStatus').value             = btn.dataset.currentStatus;
+        document.getElementById('adminNote').value             = '';
+        document.getElementById('statusAlert').className       = 'alert';
+        document.getElementById('statusModal').classList.add('open');
+    }
+
+    function closeModal() {
+        document.getElementById('statusModal').classList.remove('open');
+        editingId = null;
+    }
+
+    function handleModalBackdrop(event) {
+        if (event.target === document.getElementById('statusModal')) closeModal();
+    }
+
+    async function updateStatus() {
+        const btn   = document.getElementById('updateBtn');
+        const alert = document.getElementById('statusAlert');
+
+        btn.classList.add('loading'); btn.disabled = true;
+        try {
+            await MaintenanceAPI.updateStatus(editingId, {
+                status: document.getElementById('newStatus').value,
+                notes:  document.getElementById('adminNote').value.trim() || null,
+            });
+            closeModal();
+            await loadRequests();
+            await loadStats();
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    // ── Init ─────────────────────────────────────────────
+    loadStats();
+    loadRequests();
+</script>
+</body>
+</html>

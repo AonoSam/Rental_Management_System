@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin Dashboard — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="icon">🏢</div>
+            <span>RentEase</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"    class="nav-item active">
+                <span class="nav-icon">📊</span> Dashboard
+            </a>
+            <a href="/pages/admin/properties.html"   class="nav-item">
+                <span class="nav-icon">🏠</span> Properties
+            </a>
+            <a href="/pages/admin/tenants.html"      class="nav-item">
+                <span class="nav-icon">👥</span> Tenants
+            </a>
+            <a href="/pages/admin/payments.html"     class="nav-item">
+                <span class="nav-icon">💳</span> Payments
+            </a>
+            <a href="/pages/admin/maintenance.html"  class="nav-item">
+                <span class="nav-icon">🔧</span> Maintenance
+            </a>
+            <a href="/pages/admin/reports.html"      class="nav-item">
+                <span class="nav-icon">📈</span> Reports
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()">
+                <span class="nav-icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Dashboard</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue">🏠</div>
+                <div>
+                    <div class="stat-label">Total properties</div>
+                    <div class="stat-value" id="totalProperties">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">👥</div>
+                <div>
+                    <div class="stat-label">Active tenants</div>
+                    <div class="stat-value" id="totalTenants">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon amber">💰</div>
+                <div>
+                    <div class="stat-label">This month (KES)</div>
+                    <div class="stat-value" id="monthlyRevenue">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">🔧</div>
+                <div>
+                    <div class="stat-label">Open maintenance</div>
+                    <div class="stat-value" id="openMaintenance">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent payments -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Recent payments</h3>
+                <button class="btn-sm" onclick="window.location='/pages/admin/payments.html'">
+                    View all
+                </button>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th>Tenant</th>
+                    <th>Unit</th>
+                    <th>Amount (KES)</th>
+                    <th>M-Pesa code</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="paymentsTable">
+                <tr><td colspan="6" style="text-align:center;color:var(--text-2);padding:32px">
+                    Loading...
+                </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    // Populate user info
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    async function loadDashboard() {
+        try {
+            const [stats, payStats] = await Promise.all([
+                apiFetch('/dashboard/stats'),
+                apiFetch('/payments/stats'),
+            ]);
+            document.getElementById('totalProperties').textContent = stats.totalProperties;
+            document.getElementById('totalTenants').textContent    = stats.activeTenants;
+            document.getElementById('monthlyRevenue').textContent  =
+                'KES ' + Number(payStats.monthlyRevenue).toLocaleString();
+            document.getElementById('openMaintenance').textContent = stats.vacantUnits + ' vacant';
+        } catch (err) { console.error(err); }
+    }
+
+
+        // Payments table — will be replaced with real data once payments module is built
+        const tbody = document.getElementById('paymentsTable');
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-2);padding:32px">
+            No payments yet
+        </td></tr>`;
+    }
+
+    loadDashboard();
+</script>
+</body>
+</html>

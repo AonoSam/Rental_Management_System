@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Tenants — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .filters { display:flex; gap:10px; margin-bottom:20px; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); transition:all .15s; }
+        .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+
+        /* Modal */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .modal-overlay.open { opacity:1; pointer-events:all; }
+        .modal { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
+        .modal-overlay.open .modal { transform:translateY(0); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .modal-header h3 { font-size:18px; font-weight:600; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-2); }
+        .modal-footer { display:flex; gap:10px; margin-top:24px; }
+        .modal-footer .btn { flex:1; }
+        .section-divider { font-size:12px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.06em; margin:20px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+        select { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        select:focus { border-color:var(--primary); }
+
+        /* Tenant card */
+        .tenant-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; align-items:flex-start; gap:16px; }
+        .tenant-avatar { width:46px; height:46px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; flex-shrink:0; }
+        .tenant-info { flex:1; min-width:0; }
+        .tenant-name { font-size:15px; font-weight:600; margin-bottom:2px; }
+        .tenant-meta { font-size:13px; color:var(--text-2); display:flex; flex-wrap:wrap; gap:12px; margin-top:6px; }
+        .tenant-meta span { display:flex; align-items:center; gap:4px; }
+        .tenant-actions { display:flex; gap:6px; flex-shrink:0; }
+        .btn-icon { width:34px; height:34px; border-radius:8px; border:1.5px solid var(--border); background:none; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+        .btn-icon:hover { border-color:var(--primary); }
+        .btn-icon.danger:hover { border-color:var(--error); background:#FEF2F2; }
+        .tenants-grid { display:grid; gap:12px; }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+
+        /* Detail drawer */
+        .drawer-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .drawer-overlay.open { opacity:1; pointer-events:all; }
+        .drawer { position:fixed; top:0; right:0; height:100%; width:420px; max-width:95vw; background:var(--surface); box-shadow:-4px 0 24px rgba(0,0,0,.1); z-index:201; transform:translateX(100%); transition:transform .3s; overflow-y:auto; }
+        .drawer.open { transform:translateX(0); }
+        .drawer-header { padding:24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+        .drawer-body { padding:24px; }
+        .detail-row { display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); font-size:14px; }
+        .detail-row:last-child { border-bottom:none; }
+        .detail-label { color:var(--text-2); }
+        .detail-value { font-weight:500; text-align:right; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="icon">🏢</div><span>RentEase</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"  class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"     class="nav-item active"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/payments.html"    class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Tenants</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="tenantCount">Loading...</p>
+            <button class="btn btn-primary" style="width:auto;padding:0 20px"
+                    onclick="openAddModal()">+ Add tenant</button>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="ALL"     onclick="setFilter(this)">All</button>
+            <button class="filter-btn"        data-filter="ACTIVE"  onclick="setFilter(this)">Active</button>
+            <button class="filter-btn"        data-filter="VACATED" onclick="setFilter(this)">Vacated</button>
+        </div>
+
+        <div class="tenants-grid" id="tenantsGrid">
+            <div class="empty-state"><div class="icon">👥</div><p>Loading tenants...</p></div>
+        </div>
+    </main>
+</div>
+
+<!-- ── Add / Edit Tenant Modal ── -->
+<div class="modal-overlay" id="tenantModal" onclick="handleModalBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add tenant</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+
+        <div class="section-divider">Account details</div>
+        <div class="form-group">
+            <label>Full name</label>
+            <div class="input-wrap">
+                <span class="icon">👤</span>
+                <input type="text" id="tName" placeholder="e.g. John Kamau"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Email address</label>
+            <div class="input-wrap">
+                <span class="icon">✉</span>
+                <input type="email" id="tEmail" placeholder="john@example.com"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Phone number</label>
+            <div class="input-wrap">
+                <span class="icon">📱</span>
+                <input type="tel" id="tPhone" placeholder="0712 345 678"/>
+            </div>
+        </div>
+        <div class="form-group" id="passwordGroup">
+            <label>Password <span style="color:var(--text-2);font-size:12px">(default: tenant123)</span></label>
+            <div class="input-wrap">
+                <span class="icon">🔒</span>
+                <input type="password" id="tPassword" placeholder="Leave blank for default"/>
+            </div>
+        </div>
+
+        <div class="section-divider">Tenant details</div>
+        <div class="form-group">
+            <label>National ID</label>
+            <div class="input-wrap">
+                <span class="icon">🪪</span>
+                <input type="text" id="tNationalId" placeholder="e.g. 12345678"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Emergency contact name</label>
+            <div class="input-wrap">
+                <span class="icon">👥</span>
+                <input type="text" id="tEmergencyContact" placeholder="e.g. Jane Kamau"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Emergency contact phone</label>
+            <div class="input-wrap">
+                <span class="icon">📞</span>
+                <input type="tel" id="tEmergencyPhone" placeholder="0722 000 000"/>
+            </div>
+        </div>
+
+        <div class="section-divider">Unit & lease</div>
+        <div class="form-group">
+            <label>Assign unit</label>
+            <select id="tUnit">
+                <option value="">Loading vacant units...</option>
+            </select>
+        </div>
+
+        <!-- Lease start date -->
+        <div class="form-group">
+            <label>Lease start date</label>
+            <div class="input-wrap">
+                <span class="icon">📅</span>
+                <input type="date" id="tLeaseStart"/>
+            </div>
+        </div>
+
+        <!-- Lease end date — optional -->
+        <div class="form-group">
+            <label>Lease end date
+                <span style="color:var(--text-2);font-size:12px;font-weight:400">
+                    (optional — leave blank for month-to-month)
+                </span>
+            </label>
+            <div class="input-wrap">
+                <span class="icon">📅</span>
+                <input type="date" id="tLeaseEnd"/>
+            </div>
+        </div>
+
+        <div id="modalAlert" class="alert"></div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="saveBtn" onclick="saveTenant()">
+                <span class="btn-text">Save tenant</span>
+                <div class="btn-spinner"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tenant Detail Drawer ── -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="tenantDrawer">
+    <div class="drawer-header">
+        <div>
+            <h3 id="drawerName">Tenant details</h3>
+            <p style="font-size:13px;color:var(--text-2);margin-top:2px" id="drawerUnit"></p>
+        </div>
+        <button class="modal-close" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allTenants    = [];
+    let editingId     = null;
+    let currentFilter = 'ALL';
+
+    // ── Load tenants ─────────────────────────────────────
+    async function loadTenants() {
+        try {
+            allTenants = await TenantAPI.list();
+            renderTenants();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderTenants() {
+        const grid = document.getElementById('tenantsGrid');
+        const list = currentFilter === 'ALL'
+            ? allTenants
+            : allTenants.filter(t => t.status === currentFilter);
+
+        document.getElementById('tenantCount').textContent =
+            `${list.length} tenant${list.length !== 1 ? 's' : ''}`;
+
+        if (list.length === 0) {
+            grid.innerHTML = `<div class="empty-state">
+                <div class="icon">👥</div>
+                <p>No tenants found.</p>
+            </div>`;
+            return;
+        }
+
+        grid.innerHTML = list.map(t => `
+            <div class="tenant-card">
+                <div class="tenant-avatar">${t.name[0].toUpperCase()}</div>
+                <div class="tenant-info">
+                    <div class="tenant-name">${t.name}
+                        <span class="badge ${t.status === 'ACTIVE' ? 'badge-success' : t.status === 'VACATED' ? 'badge-warning' : 'badge-error'}"
+                              style="margin-left:8px;font-size:11px">${t.status}</span>
+                    </div>
+                    <div style="font-size:13px;color:var(--text-2)">${t.email}</div>
+                    <div class="tenant-meta">
+                        <span>📱 ${t.phone || '—'}</span>
+                        <span>🏠 ${t.unitNumber ? t.propertyName + ' · ' + t.unitNumber : 'No unit'}</span>
+                        ${t.rentAmount ? `<span>💰 KES ${Number(t.rentAmount).toLocaleString()}/mo</span>` : ''}
+                        ${t.leaseEnd   ? `<span>📅 Until ${t.leaseEnd}</span>` : ''}
+                    </div>
+                </div>
+                <div class="tenant-actions">
+                    <button class="btn-icon" title="View details"
+                        data-id="${t.id}" onclick="viewTenant(this)">👁</button>
+                    <button class="btn-icon" title="Edit"
+                        data-id="${t.id}" onclick="openEditModal(this)">✏️</button>
+                    ${t.status === 'ACTIVE' ? `
+                    <button class="btn-icon danger" title="Vacate"
+                        data-id="${t.id}" onclick="vacateTenant(this)">🚪</button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function setFilter(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderTenants();
+    }
+
+    // ── Vacant units loader ──────────────────────────────
+    async function loadVacantUnits(selectedUnitId = null) {
+        const select = document.getElementById('tUnit');
+        try {
+            const units = await TenantAPI.vacantUnits();
+            if (units.length === 0) {
+                select.innerHTML = '<option value="">No vacant units available</option>';
+                return;
+            }
+            select.innerHTML = '<option value="">Select a unit</option>' +
+                units.map(u => `
+                    <option value="${u.id}" ${selectedUnitId == u.id ? 'selected' : ''}>
+                        ${u.propertyName} — ${u.houseNumber}
+                        (${u.category.replace(/_/g,' ')})
+                        · KES ${Number(u.rentAmount).toLocaleString()}
+                    </option>
+                `).join('');
+        } catch (err) {
+            console.error('loadVacantUnits error:', err);
+            select.innerHTML = '<option value="">Could not load units</option>';
+        }
+    }
+
+    // ── Add modal ────────────────────────────────────────
+    async function openAddModal() {
+        editingId = null;
+
+        // Reset all fields
+        document.getElementById('modalTitle').textContent         = 'Add tenant';
+        document.getElementById('tName').value                    = '';
+        document.getElementById('tEmail').value                   = '';
+        document.getElementById('tPhone').value                   = '';
+        document.getElementById('tPassword').value                = '';
+        document.getElementById('tNationalId').value              = '';
+        document.getElementById('tEmergencyContact').value        = '';
+        document.getElementById('tEmergencyPhone').value          = '';
+        document.getElementById('tLeaseStart').value              = '';
+        document.getElementById('tLeaseEnd').value                = '';
+        document.getElementById('modalAlert').className           = 'alert';
+        document.getElementById('passwordGroup').style.display    = 'block';
+        document.getElementById('tUnit').innerHTML                = '<option value="">Loading...</option>';
+
+        // Open modal immediately
+        document.getElementById('tenantModal').classList.add('open');
+
+        // Load vacant units after modal opens
+        await loadVacantUnits();
+    }
+
+    // ── Edit modal ───────────────────────────────────────
+    async function openEditModal(btn) {
+        const id = parseInt(btn.dataset.id);
+        const t  = allTenants.find(x => x.id === id);
+        if (!t) return;
+
+        editingId = id;
+
+        document.getElementById('modalTitle').textContent         = 'Edit tenant';
+        document.getElementById('tName').value                    = t.name || '';
+        document.getElementById('tEmail').value                   = t.email || '';
+        document.getElementById('tPhone').value                   = t.phone || '';
+        document.getElementById('tNationalId').value              = t.nationalId || '';
+        document.getElementById('tEmergencyContact').value        = t.emergencyContact || '';
+        document.getElementById('tEmergencyPhone').value          = t.emergencyPhone || '';
+        document.getElementById('tLeaseStart').value              = t.leaseStart || '';
+        document.getElementById('tLeaseEnd').value                = t.leaseEnd || '';
+        document.getElementById('modalAlert').className           = 'alert';
+        document.getElementById('passwordGroup').style.display    = 'none';
+        document.getElementById('tUnit').innerHTML                = '<option value="">Loading...</option>';
+
+        // Open modal immediately
+        document.getElementById('tenantModal').classList.add('open');
+
+        // Load vacant units, include current unit if occupied
+        try {
+            const units = await TenantAPI.vacantUnits();
+            const select = document.getElementById('tUnit');
+            let options = units.map(u =>
+                `<option value="${u.id}" ${t.unitId == u.id ? 'selected' : ''}>
+                    ${u.propertyName} — ${u.houseNumber}
+                    · KES ${Number(u.rentAmount).toLocaleString()}
+                </option>`
+            );
+            // If tenant's current unit is occupied (not in vacant list), add it anyway
+            if (t.unitId && !units.find(u => u.id === t.unitId)) {
+                options.unshift(`<option value="${t.unitId}" selected>
+                    ${t.propertyName} — ${t.unitNumber}
+                    · KES ${Number(t.rentAmount).toLocaleString()} (current)
+                </option>`);
+            }
+            select.innerHTML = '<option value="">No unit</option>' + options.join('');
+        } catch (err) {
+            console.error('Could not load units for edit:', err);
+            document.getElementById('tUnit').innerHTML =
+                `<option value="${t.unitId || ''}">${t.unitNumber || 'Could not load units'}</option>`;
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('tenantModal').classList.remove('open');
+    }
+
+    function handleModalBackdrop(event) {
+        if (event.target === document.getElementById('tenantModal')) closeModal();
+    }
+
+    // ── Save tenant ──────────────────────────────────────
+    async function saveTenant() {
+        const btn   = document.getElementById('saveBtn');
+        const alert = document.getElementById('modalAlert');
+
+        const name   = document.getElementById('tName').value.trim();
+        const email  = document.getElementById('tEmail').value.trim();
+        const phone  = document.getElementById('tPhone').value.trim();
+        const unitId = document.getElementById('tUnit').value;
+
+        if (!name || !email) {
+            alert.textContent = 'Name and email are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading');
+        btn.disabled    = true;
+        alert.className = 'alert';
+
+        try {
+            if (editingId) {
+                await TenantAPI.update(editingId, {
+                    name,
+                    phone,
+                    nationalId:       document.getElementById('tNationalId').value.trim(),
+                    emergencyContact: document.getElementById('tEmergencyContact').value.trim(),
+                    emergencyPhone:   document.getElementById('tEmergencyPhone').value.trim(),
+                    unitId:           unitId ? parseInt(unitId) : null,
+                    leaseStart:       document.getElementById('tLeaseStart').value || null,
+                    leaseEnd:         document.getElementById('tLeaseEnd').value   || null,
+                });
+            } else {
+                await TenantAPI.register({
+                    name, email, phone,
+                    password:         document.getElementById('tPassword').value || null,
+                    nationalId:       document.getElementById('tNationalId').value.trim(),
+                    emergencyContact: document.getElementById('tEmergencyContact').value.trim(),
+                    emergencyPhone:   document.getElementById('tEmergencyPhone').value.trim(),
+                    unitId:           unitId ? parseInt(unitId) : null,
+                    leaseStart:       document.getElementById('tLeaseStart').value || null,
+                    leaseEnd:         document.getElementById('tLeaseEnd').value   || null,
+                });
+            }
+            closeModal();
+            await loadTenants();
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    }
+
+    // ── Vacate tenant ────────────────────────────────────
+    async function vacateTenant(btn) {
+        const id = parseInt(btn.dataset.id);
+        const t  = allTenants.find(x => x.id === id);
+        if (!confirm(`Vacate ${t?.name}? This will free their unit.`)) return;
+        try {
+            await TenantAPI.vacate(id);
+            await loadTenants();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── View detail drawer ───────────────────────────────
+    function viewTenant(btn) {
+        const id = parseInt(btn.dataset.id);
+        const t  = allTenants.find(x => x.id === id);
+        if (!t) return;
+
+        document.getElementById('drawerName').textContent = t.name;
+        document.getElementById('drawerUnit').textContent =
+            t.unitNumber
+                ? `${t.propertyName} · Unit ${t.unitNumber}`
+                : 'No unit assigned';
+
+        document.getElementById('drawerBody').innerHTML = `
+            <div class="detail-row">
+                <span class="detail-label">Email</span>
+                <span class="detail-value">${t.email}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Phone</span>
+                <span class="detail-value">${t.phone || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">National ID</span>
+                <span class="detail-value">${t.nationalId || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Status</span>
+                <span class="detail-value">
+                    <span class="badge ${t.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}">
+                        ${t.status}
+                    </span>
+                </span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Property</span>
+                <span class="detail-value">${t.propertyName || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Unit</span>
+                <span class="detail-value">${t.unitNumber || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Category</span>
+                <span class="detail-value">${t.category ? t.category.replace(/_/g,' ') : '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Monthly rent</span>
+                <span class="detail-value">
+                    ${t.rentAmount ? 'KES ' + Number(t.rentAmount).toLocaleString() : '—'}
+                </span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Lease start</span>
+                <span class="detail-value">${t.leaseStart || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Lease end</span>
+                <span class="detail-value">${t.leaseEnd || 'Month-to-month'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Emergency contact</span>
+                <span class="detail-value">${t.emergencyContact || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Emergency phone</span>
+                <span class="detail-value">${t.emergencyPhone || '—'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Registered</span>
+                <span class="detail-value">
+                    ${t.createdAt ? t.createdAt.substring(0,10) : '—'}
+                </span>
+            </div>
+        `;
+
+        document.getElementById('drawerOverlay').classList.add('open');
+        document.getElementById('tenantDrawer').classList.add('open');
+    }
+
+    function closeDrawer() {
+        document.getElementById('drawerOverlay').classList.remove('open');
+        document.getElementById('tenantDrawer').classList.remove('open');
+    }
+
+    // ── Init ─────────────────────────────────────────────
+    loadTenants();
+</script>
+</body>
+</html>

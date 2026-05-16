@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Caretaker Dashboard — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .welcome-card { background:var(--primary); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; }
+        .welcome-card h2 { font-size:22px; font-weight:700; margin-bottom:4px; }
+        .welcome-card p  { color:rgba(255,255,255,.8); font-size:14px; }
+        .quick-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
+        .action-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; text-decoration:none; display:block; transition:all .15s; }
+        .action-card:hover { border-color:var(--primary); transform:translateY(-2px); }
+        .action-icon  { font-size:32px; margin-bottom:8px; }
+        .action-label { font-size:13px; font-weight:600; color:var(--text-1); }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/caretaker/dashboard.html"   class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/caretaker/units.html"       class="nav-item"><span class="nav-icon">🏠</span> Units</a>
+            <a href="/pages/caretaker/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/caretaker/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Dashboard</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">C</div>
+                <span id="userName">Caretaker</span>
+            </div>
+        </div>
+
+        <div class="welcome-card">
+            <div>
+                <h2 id="welcomeName">Welcome back!</h2>
+                <p>Manage units, tenants and maintenance requests</p>
+            </div>
+            <div style="font-size:48px">🔑</div>
+        </div>
+
+        <div class="stat-grid" style="margin-bottom:24px">
+            <div class="stat-card">
+                <div class="stat-icon blue">🏠</div>
+                <div><div class="stat-label">Total units</div><div class="stat-value" id="totalUnits">—</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">✅</div>
+                <div><div class="stat-label">Occupied</div><div class="stat-value" id="occupiedUnits">—</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon amber">🔓</div>
+                <div><div class="stat-label">Vacant</div><div class="stat-value" id="vacantUnits">—</div></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">🔧</div>
+                <div><div class="stat-label">Pending maintenance</div><div class="stat-value" id="pendingMaintenance">—</div></div>
+            </div>
+        </div>
+
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Quick actions</h3>
+        <div class="quick-actions">
+            <a href="/pages/caretaker/units.html" class="action-card">
+                <div class="action-icon">🏠</div><div class="action-label">View units</div>
+            </a>
+            <a href="/pages/caretaker/tenants.html" class="action-card">
+                <div class="action-icon">👥</div><div class="action-label">Add tenant</div>
+            </a>
+            <a href="/pages/caretaker/maintenance.html" class="action-card">
+                <div class="action-icon">🔧</div><div class="action-label">Maintenance</div>
+            </a>
+        </div>
+    </main>
+</div>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+        document.getElementById('welcomeName').textContent = 'Welcome back, ' + user.name.split(' ')[0] + '!';
+    }
+    async function loadStats() {
+        try {
+            const s = await apiFetch('/tenants/caretaker/overview');
+            document.getElementById('totalUnits').textContent        = s.totalUnits;
+            document.getElementById('occupiedUnits').textContent     = s.occupiedUnits;
+            document.getElementById('vacantUnits').textContent       = s.vacantUnits;
+            document.getElementById('pendingMaintenance').textContent= s.pendingMaintenance;
+        } catch (err) { console.error(err); }
+    }
+    loadStats();
+</script>
+</body>
+</html>

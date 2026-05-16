@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Register — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<div class="auth-wrapper">
+
+    <div class="auth-brand">
+        <div class="brand-icon">🏢</div>
+        <h1>RentEase</h1>
+        <p>Join thousands of landlords and tenants managing properties smarter</p>
+        <div class="features">
+            <div class="feature-item"><span class="dot"></span>Free to get started</div>
+            <div class="feature-item"><span class="dot"></span>Secure JWT authentication</div>
+            <div class="feature-item"><span class="dot"></span>Role-based dashboards</div>
+        </div>
+    </div>
+
+    <div class="auth-form-panel">
+        <div class="auth-card">
+            <h2>Create account</h2>
+            <p class="subtitle">Fill in your details below</p>
+
+            <div id="alertBox" class="alert"></div>
+
+            <form id="registerForm" novalidate>
+                <div class="form-group">
+                    <label for="name">Full name</label>
+                    <div class="input-wrap">
+                        <span class="icon">👤</span>
+                        <input type="text" id="name" placeholder="John Kamau" required/>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email address</label>
+                    <div class="input-wrap">
+                        <span class="icon">✉</span>
+                        <input type="email" id="email" placeholder="you@example.com" required/>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone number</label>
+                    <div class="input-wrap">
+                        <span class="icon">📱</span>
+                        <input type="tel" id="phone" placeholder="0712 345 678" required/>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>I am a</label>
+                    <div class="role-selector">
+                        <button type="button" class="role-btn active" data-role="TENANT">Tenant</button>
+                        <button type="button" class="role-btn" data-role="ADMIN">Admin</button>
+                        <button type="button" class="role-btn" data-role="CARETAKER">Caretaker</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrap">
+                        <span class="icon">🔒</span>
+                        <input type="password" id="password" placeholder="Min 6 characters" required/>
+                        <button type="button" class="toggle-pass">👁</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm password</label>
+                    <div class="input-wrap">
+                        <span class="icon">🔒</span>
+                        <input type="password" id="confirmPassword" placeholder="Repeat password" required/>
+                        <button type="button" class="toggle-pass">👁</button>
+                    </div>
+                </div>
+
+                <button type="submit" id="registerBtn" class="btn btn-primary">
+                    <span class="btn-text">Create account</span>
+                    <div class="btn-spinner"></div>
+                </button>
+            </form>
+
+            <p class="switch-row">
+                Already have an account? <a href="/login.html" class="link">Sign in</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+</body>
+</html>

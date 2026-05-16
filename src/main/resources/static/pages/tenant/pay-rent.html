@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Pay Rent — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .pay-card  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:28px; max-width:480px; }
+        .pay-title { font-size:20px; font-weight:700; margin-bottom:6px; }
+        .pay-sub   { color:var(--text-2); font-size:14px; margin-bottom:28px; }
+        .amount-display { background:var(--primary-light); border-radius:12px; padding:20px; text-align:center; margin-bottom:24px; }
+        .amount-display .label { font-size:13px; color:var(--primary); font-weight:500; }
+        .amount-display .value { font-size:36px; font-weight:700; color:var(--primary); margin-top:4px; }
+        .status-steps { display:flex; flex-direction:column; gap:10px; margin:20px 0; }
+        .step  { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:10px; background:var(--bg); border:1px solid var(--border); }
+        .step-icon  { font-size:20px; width:28px; text-align:center; flex-shrink:0; }
+        .step-title { font-size:14px; font-weight:600; }
+        .step-desc  { font-size:12px; color:var(--text-2); margin-top:2px; }
+        .step.active{ background:var(--primary-light); border-color:var(--primary); }
+        .step.done  { background:#F0FDF4; border-color:#BBF7D0; }
+        .step.failed{ background:#FEF2F2; border-color:#FECACA; }
+        .spinner-sm { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/tenant/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/tenant/pay-rent.html"    class="nav-item active"><span class="nav-icon">💳</span> Pay Rent</a>
+            <a href="/pages/tenant/payments.html"    class="nav-item"><span class="nav-icon">📋</span> Payment History</a>
+            <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/profile.html"     class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Pay Rent</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">T</div>
+                <span id="userName">Tenant</span>
+            </div>
+        </div>
+
+        <div class="pay-card">
+            <p class="pay-title">💳 M-Pesa Payment</p>
+            <p class="pay-sub">An STK push will be sent to your phone. Enter your PIN to complete.</p>
+
+            <div id="payForm">
+                <div class="amount-display">
+                    <div class="label">Monthly rent amount</div>
+                    <div class="value" id="rentDisplay">Loading...</div>
+                </div>
+                <div class="form-group">
+                    <label>Amount (KES)</label>
+                    <div class="input-wrap">
+                        <span class="icon">💰</span>
+                        <input type="number" id="payAmount" placeholder="e.g. 15000"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>M-Pesa phone number</label>
+                    <div class="input-wrap">
+                        <span class="icon">📱</span>
+                        <input type="tel" id="payPhone" placeholder="e.g. 0712345678"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Payment month</label>
+                    <div class="input-wrap">
+                        <span class="icon">📅</span>
+                        <input type="month" id="payMonth"/>
+                    </div>
+                </div>
+                <div id="payAlert" class="alert"></div>
+                <button class="btn btn-primary" id="payBtn" onclick="sendPayment()">
+                    <span class="btn-text">📲 Send STK Push</span>
+                    <div class="btn-spinner"></div>
+                </button>
+            </div>
+
+            <div id="payStatus" style="display:none">
+                <div class="status-steps">
+                    <div class="step done" id="step1">
+                        <div class="step-icon">✅</div>
+                        <div class="step-text">
+                            <div class="step-title">STK Push sent</div>
+                            <div class="step-desc">Prompt sent to your phone</div>
+                        </div>
+                    </div>
+                    <div class="step active" id="step2">
+                        <div class="step-icon"><div class="spinner-sm"></div></div>
+                        <div class="step-text">
+                            <div class="step-title">Enter your M-Pesa PIN</div>
+                            <div class="step-desc">Check your phone and enter PIN</div>
+                        </div>
+                    </div>
+                    <div class="step" id="step3">
+                        <div class="step-icon">⏳</div>
+                        <div class="step-text">
+                            <div class="step-title">Payment confirmation</div>
+                            <div class="step-desc">Will update automatically</div>
+                        </div>
+                    </div>
+                </div>
+                <p style="font-size:13px;color:var(--text-2);text-align:center">
+                    Checking every 5 seconds...
+                </p>
+                <button class="btn btn-primary" id="doneBtn"
+                        style="display:none;margin-top:16px"
+                        onclick="window.location='/pages/tenant/payments.html'">
+                    View payment history
+                </button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let tenantProfile     = null;
+    let currentCheckoutId = null;
+    let pollTimer         = null;
+
+    async function loadProfile() {
+        try {
+            const data = await TenantSelfAPI.dashboard();
+            tenantProfile = data.tenant;
+
+            const rent = tenantProfile.rentAmount;
+            document.getElementById('rentDisplay').textContent =
+                rent ? 'KES ' + Number(rent).toLocaleString() : 'Not set';
+            if (rent) document.getElementById('payAmount').value = rent;
+            if (tenantProfile.phone)
+                document.getElementById('payPhone').value = tenantProfile.phone;
+            document.getElementById('payMonth').value =
+                new Date().toISOString().substring(0,7);
+
+            if (data.paidThisMonth) {
+                document.getElementById('payAlert').textContent =
+                    '✅ You have already paid rent for this month.';
+                document.getElementById('payAlert').className = 'alert alert-success show';
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function sendPayment() {
+        const btn    = document.getElementById('payBtn');
+        const alert  = document.getElementById('payAlert');
+        const amount = document.getElementById('payAmount').value;
+        const phone  = document.getElementById('payPhone').value.trim();
+        const month  = document.getElementById('payMonth').value;
+
+        if (!amount || !phone) {
+            alert.textContent = 'Amount and phone number are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+        alert.className = 'alert';
+
+        try {
+            const result = await PaymentAPI.initiate({
+                tenantId:     tenantProfile.id,
+                amount:       parseFloat(amount),
+                phoneNumber:  phone,
+                paymentMonth: month,
+            });
+
+            currentCheckoutId = result.checkoutRequestId;
+            document.getElementById('payForm').style.display   = 'none';
+            document.getElementById('payStatus').style.display = 'block';
+            pollTimer = setInterval(pollStatus, 5000);
+
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    async function pollStatus() {
+        try {
+            const p = await apiFetch(`/payments/status/${currentCheckoutId}`);
+            if (p.status === 'SUCCESS') {
+                clearInterval(pollTimer);
+                document.getElementById('step2').className = 'step done';
+                document.getElementById('step2').querySelector('.step-icon').textContent = '✅';
+                document.getElementById('step2').querySelector('.step-title').textContent = 'PIN entered';
+                document.getElementById('step3').className = 'step done';
+                document.getElementById('step3').querySelector('.step-icon').textContent = '✅';
+                document.getElementById('step3').querySelector('.step-title').textContent = 'Payment confirmed!';
+                document.getElementById('step3').querySelector('.step-desc').textContent =
+                    `M-Pesa code: ${p.mpesaCode}`;
+                document.getElementById('doneBtn').style.display = 'block';
+            } else if (p.status === 'FAILED' || p.status === 'CANCELLED') {
+                clearInterval(pollTimer);
+                document.getElementById('step2').className = 'step failed';
+                document.getElementById('step2').querySelector('.step-icon').textContent = '❌';
+                document.getElementById('step2').querySelector('.step-title').textContent =
+                    p.status === 'CANCELLED' ? 'Cancelled' : 'Payment failed';
+                document.getElementById('step2').querySelector('.step-desc').textContent =
+                    p.failureReason || '';
+                document.getElementById('doneBtn').style.display = 'block';
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    loadProfile();
+</script>
+</body>
+</html>

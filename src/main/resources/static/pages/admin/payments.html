@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Payments — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header  { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .modal-overlay.open { opacity:1; pointer-events:all; }
+        .modal        { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:460px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
+        .modal-overlay.open .modal { transform:translateY(0); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .modal-header h3 { font-size:18px; font-weight:600; }
+        .modal-close  { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-2); }
+        select        { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        select:focus  { border-color:var(--primary); }
+
+        /* Status steps */
+        .status-steps { display:flex; flex-direction:column; gap:12px; margin:20px 0; }
+        .step         { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:10px; background:var(--bg); border:1px solid var(--border); }
+        .step-icon    { font-size:22px; width:32px; text-align:center; }
+        .step-text    { flex:1; }
+        .step-title   { font-size:14px; font-weight:600; }
+        .step-desc    { font-size:12px; color:var(--text-2); margin-top:2px; }
+        .step.active  { background:var(--primary-light); border-color:var(--primary); }
+        .step.done    { background:#F0FDF4; border-color:#BBF7D0; }
+        .step.failed  { background:#FEF2F2; border-color:#FECACA; }
+        .spinner-sm   { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"  class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/payments.html"    class="nav-item active"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Payments</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid" style="margin-bottom:28px">
+            <div class="stat-card">
+                <div class="stat-icon green">💰</div>
+                <div>
+                    <div class="stat-label">This month (KES)</div>
+                    <div class="stat-value" id="monthlyRevenue">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">✅</div>
+                <div>
+                    <div class="stat-label">Total successful</div>
+                    <div class="stat-value" id="totalSuccessful">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon amber">⏳</div>
+                <div>
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value" id="pendingCount">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="paymentCount">Loading...</p>
+            <button class="btn btn-primary" style="width:auto;padding:0 20px"
+                    onclick="openPayModal()">+ Record payment</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h3>All payments</h3></div>
+            <table>
+                <thead>
+                <tr>
+                    <th>Tenant</th><th>Unit</th><th>Amount (KES)</th>
+                    <th>M-Pesa code</th><th>Month</th><th>Date</th><th>Status</th>
+                </tr>
+                </thead>
+                <tbody id="paymentsTable">
+                <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-2)">
+                    Loading...
+                </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<!-- ── Payment Modal ── -->
+<div class="modal-overlay" id="payModal" onclick="handlePayModalBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="payModalTitle">Record payment</h3>
+            <button class="modal-close" onclick="closePayModal()">×</button>
+        </div>
+
+        <!-- Step 1: form -->
+        <div id="payForm">
+            <div class="form-group">
+                <label>Tenant</label>
+                <select id="payTenant" onchange="onTenantChange()">
+                    <option value="">Select tenant...</option>
+                </select>
+            </div>
+            <div class="form-group" id="rentHint" style="display:none">
+                <div style="background:var(--primary-light);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--primary)">
+                    💡 Monthly rent: <strong id="rentAmount">—</strong>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Amount (KES)</label>
+                <div class="input-wrap">
+                    <span class="icon">💰</span>
+                    <input type="number" id="payAmount" placeholder="e.g. 15000"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>M-Pesa phone number</label>
+                <div class="input-wrap">
+                    <span class="icon">📱</span>
+                    <input type="tel" id="payPhone" placeholder="e.g. 0712345678"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Payment month</label>
+                <div class="input-wrap">
+                    <span class="icon">📅</span>
+                    <input type="month" id="payMonth"/>
+                </div>
+            </div>
+            <div id="payAlert" class="alert"></div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="sendStkBtn" onclick="sendStkPush()">
+                    <span class="btn-text">📲 Send STK Push</span>
+                    <div class="btn-spinner"></div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: waiting for payment -->
+        <div id="payStatus" style="display:none">
+            <div class="status-steps">
+                <div class="step done" id="step1">
+                    <div class="step-icon">✅</div>
+                    <div class="step-text">
+                        <div class="step-title">STK Push sent</div>
+                        <div class="step-desc">Prompt sent to tenant's phone</div>
+                    </div>
+                </div>
+                <div class="step active" id="step2">
+                    <div class="step-icon"><div class="spinner-sm"></div></div>
+                    <div class="step-text">
+                        <div class="step-title">Waiting for PIN entry</div>
+                        <div class="step-desc" id="step2Desc">Ask tenant to enter M-Pesa PIN on their phone</div>
+                    </div>
+                </div>
+                <div class="step" id="step3">
+                    <div class="step-icon">⏳</div>
+                    <div class="step-text">
+                        <div class="step-title">Payment confirmation</div>
+                        <div class="step-desc">Will update automatically</div>
+                    </div>
+                </div>
+            </div>
+            <p style="font-size:13px;color:var(--text-2);text-align:center;margin-top:8px">
+                Polling for confirmation every 5 seconds...
+            </p>
+            <button class="btn btn-primary" id="doneBtn" style="display:none;margin-top:16px"
+                    onclick="closePayModal()">
+                Close
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allTenants = [];
+    let pollTimer  = null;
+    let currentCheckoutId = null;
+
+    // ── Load stats ───────────────────────────────────────
+    async function loadStats() {
+        try {
+            const stats = await apiFetch('/payments/stats');
+            document.getElementById('monthlyRevenue').textContent =
+                'KES ' + Number(stats.monthlyRevenue).toLocaleString();
+            document.getElementById('totalSuccessful').textContent = stats.totalSuccessful;
+            document.getElementById('pendingCount').textContent    = stats.pendingCount;
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Load payments table ──────────────────────────────
+    async function loadPayments() {
+        try {
+            const payments = await PaymentAPI.list();
+            document.getElementById('paymentCount').textContent =
+                `${payments.length} payment${payments.length !== 1 ? 's' : ''}`;
+
+            const tbody = document.getElementById('paymentsTable');
+            if (payments.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7"
+          style="text-align:center;padding:32px;color:var(--text-2)">
+          No payments yet
+        </td></tr>`;
+                return;
+            }
+
+            const badge = {
+                SUCCESS:   'badge-success',
+                PENDING:   'badge-warning',
+                FAILED:    'badge-error',
+                CANCELLED: 'badge-error',
+            };
+
+            tbody.innerHTML = payments.map(p => `
+        <tr>
+          <td>${p.tenantName}</td>
+          <td>${p.unitNumber || '—'}</td>
+          <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
+          <td>${p.mpesaCode
+                ? `<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${p.mpesaCode}</code>`
+                : '—'}</td>
+          <td>${p.paymentMonth || '—'}</td>
+          <td>${p.createdAt ? p.createdAt.substring(0,10) : '—'}</td>
+          <td><span class="badge ${badge[p.status] || 'badge-info'}">${p.status}</span></td>
+        </tr>
+      `).join('');
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Open payment modal ───────────────────────────────
+    async function openPayModal() {
+        document.getElementById('payForm').style.display   = 'block';
+        document.getElementById('payStatus').style.display = 'none';
+        document.getElementById('payAlert').className      = 'alert';
+        document.getElementById('payAmount').value         = '';
+        document.getElementById('payPhone').value          = '';
+        document.getElementById('payMonth').value          =
+            new Date().toISOString().substring(0,7); // current month
+        document.getElementById('rentHint').style.display  = 'none';
+        document.getElementById('sendStkBtn').disabled     = false;
+        document.getElementById('sendStkBtn').classList.remove('loading');
+        document.getElementById('payModal').classList.add('open');
+
+        // Load active tenants
+        try {
+            allTenants = await TenantAPI.active();
+            const select = document.getElementById('payTenant');
+            select.innerHTML = '<option value="">Select tenant...</option>' +
+                allTenants.map(t => `
+          <option value="${t.id}"
+            data-phone="${t.phone || ''}"
+            data-rent="${t.rentAmount || ''}">
+            ${t.name} — ${t.unitNumber ? t.propertyName + ' · ' + t.unitNumber : 'No unit'}
+          </option>
+        `).join('');
+        } catch (err) { console.error(err); }
+    }
+
+    function onTenantChange() {
+        const select = document.getElementById('payTenant');
+        const opt    = select.options[select.selectedIndex];
+        const phone  = opt.dataset.phone;
+        const rent   = opt.dataset.rent;
+
+        if (phone) document.getElementById('payPhone').value = phone;
+
+        if (rent) {
+            document.getElementById('rentAmount').textContent =
+                'KES ' + Number(rent).toLocaleString();
+            document.getElementById('rentHint').style.display = 'block';
+            document.getElementById('payAmount').value = rent;
+        } else {
+            document.getElementById('rentHint').style.display = 'none';
+        }
+    }
+
+    function closePayModal() {
+        document.getElementById('payModal').classList.remove('open');
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        currentCheckoutId = null;
+        loadPayments();
+        loadStats();
+    }
+
+    function handlePayModalBackdrop(event) {
+        if (event.target === document.getElementById('payModal')) closePayModal();
+    }
+
+    // ── Send STK Push ────────────────────────────────────
+    async function sendStkPush() {
+        const alert    = document.getElementById('payAlert');
+        const btn      = document.getElementById('sendStkBtn');
+        const tenantId = document.getElementById('payTenant').value;
+        const amount   = document.getElementById('payAmount').value;
+        const phone    = document.getElementById('payPhone').value.trim();
+        const month    = document.getElementById('payMonth').value;
+
+        if (!tenantId || !amount || !phone) {
+            alert.textContent = 'Tenant, amount and phone are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+        alert.className = 'alert';
+
+        try {
+            const result = await PaymentAPI.initiate({
+                tenantId:     parseInt(tenantId),
+                amount:       parseFloat(amount),
+                phoneNumber:  phone,
+                paymentMonth: month,
+            });
+
+            currentCheckoutId = result.checkoutRequestId;
+
+            // Show status steps
+            document.getElementById('payForm').style.display   = 'none';
+            document.getElementById('payStatus').style.display = 'block';
+
+            // Start polling every 5 seconds
+            pollTimer = setInterval(() => pollPaymentStatus(), 5000);
+
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    // ── Poll payment status ──────────────────────────────
+    async function pollPaymentStatus() {
+        if (!currentCheckoutId) return;
+        try {
+            const payment = await apiFetch(`/payments/status/${currentCheckoutId}`);
+
+            if (payment.status === 'SUCCESS') {
+                clearInterval(pollTimer); pollTimer = null;
+
+                document.getElementById('step2').className = 'step done';
+                document.getElementById('step2').querySelector('.step-icon').textContent = '✅';
+                document.getElementById('step2').querySelector('.step-title').textContent = 'PIN entered';
+
+                document.getElementById('step3').className = 'step done';
+                document.getElementById('step3').querySelector('.step-icon').textContent = '✅';
+                document.getElementById('step3').querySelector('.step-title').textContent = 'Payment confirmed!';
+                document.getElementById('step3').querySelector('.step-desc').textContent =
+                    `M-Pesa code: ${payment.mpesaCode}`;
+
+                document.getElementById('doneBtn').style.display = 'block';
+
+            } else if (payment.status === 'FAILED' || payment.status === 'CANCELLED') {
+                clearInterval(pollTimer); pollTimer = null;
+
+                document.getElementById('step2').className = 'step failed';
+                document.getElementById('step2').querySelector('.step-icon').textContent = '❌';
+                document.getElementById('step2').querySelector('.step-title').textContent =
+                    payment.status === 'CANCELLED' ? 'Cancelled by user' : 'Payment failed';
+                document.getElementById('step2').querySelector('.step-desc').textContent =
+                    payment.failureReason || '';
+
+                document.getElementById('doneBtn').style.display = 'block';
+            }
+        } catch (err) { console.error('Poll error:', err); }
+    }
+
+    // ── Init ─────────────────────────────────────────────
+    loadStats();
+    loadPayments();
+</script>
+</body>
+</html>
