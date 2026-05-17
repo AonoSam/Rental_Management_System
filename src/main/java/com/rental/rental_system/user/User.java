@@ -6,6 +6,7 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import com.rental.rental_system.property.Property;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -38,6 +39,10 @@ public class User implements UserDetails{
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_property_id")
+    private com.rental.rental_system.property.Property assignedProperty;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

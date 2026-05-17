@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Caretakers — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .caretakers-grid { display:grid; gap:14px; }
+        .caretaker-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+        .caretaker-avatar { width:48px; height:48px; border-radius:50%; background:#00C07A; color:#fff; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; flex-shrink:0; }
+        .caretaker-info { flex:1; min-width:200px; }
+        .caretaker-name { font-size:15px; font-weight:600; margin-bottom:2px; }
+        .caretaker-meta { font-size:13px; color:var(--text-2); }
+        .assigned-badge { display:inline-flex; align-items:center; gap:6px; background:var(--primary-light); color:var(--primary); border-radius:20px; padding:4px 12px; font-size:13px; font-weight:500; margin-top:8px; }
+        .unassigned-badge { display:inline-flex; align-items:center; gap:6px; background:#FEF2F2; color:var(--error); border-radius:20px; padding:4px 12px; font-size:13px; font-weight:500; margin-top:8px; }
+        .caretaker-actions { display:flex; gap:8px; align-items:center; flex-shrink:0; flex-wrap:wrap; }
+        .btn-assign { padding:8px 16px; border-radius:8px; background:var(--primary); color:#fff; border:none; font-size:13px; font-weight:500; cursor:pointer; }
+        .btn-assign:hover { background:var(--primary-dark); }
+        .btn-unassign { padding:8px 16px; border-radius:8px; background:none; color:var(--error); border:1.5px solid #FECACA; font-size:13px; font-weight:500; cursor:pointer; }
+        .btn-unassign:hover { background:#FEF2F2; }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .modal-overlay.open { opacity:1; pointer-events:all; }
+        .modal { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
+        .modal-overlay.open .modal { transform:translateY(0); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+        .modal-header h3 { font-size:18px; font-weight:600; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-2); }
+        select { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        select:focus { border-color:var(--primary); }
+        .info-box { background:var(--primary-light); border-radius:10px; padding:14px 16px; font-size:13px; color:var(--primary); margin-bottom:20px; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"  class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/payments.html"    class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/caretakers.html"  class="nav-item active"><span class="nav-icon">🔑</span> Caretakers</a>
+            <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Caretakers</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <div class="info-box" style="margin-bottom:20px">
+            💡 Each caretaker is assigned to <strong>one property only</strong>.
+            They can only view and manage units, tenants and maintenance for their assigned property.
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="caretakerCount">Loading...</p>
+        </div>
+
+        <div class="caretakers-grid" id="caretakersGrid">
+            <div class="empty-state"><div class="icon">🔑</div><p>Loading caretakers...</p></div>
+        </div>
+    </main>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal-overlay" id="assignModal" onclick="handleBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Assign property</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <p style="font-size:14px;color:var(--text-2);margin-bottom:20px">
+            Assigning to: <strong id="modalCaretakerName"></strong>
+        </p>
+        <div class="form-group">
+            <label>Select property</label>
+            <select id="propertySelect">
+                <option value="">Loading properties...</option>
+            </select>
+        </div>
+        <div id="assignAlert" class="alert"></div>
+        <div style="margin-top:20px">
+            <button class="btn btn-primary" id="assignBtn" onclick="confirmAssign()">
+                <span class="btn-text">Assign property</span>
+                <div class="btn-spinner"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allCaretakers       = [];
+    let allProperties       = [];
+    let selectedCaretakerId = null;
+
+    async function loadData() {
+        try {
+            [allCaretakers, allProperties] = await Promise.all([
+                CaretakerAPI.list(),
+                PropertyAPI.list(),
+            ]);
+            renderCaretakers();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderCaretakers() {
+        const grid = document.getElementById('caretakersGrid');
+        document.getElementById('caretakerCount').textContent =
+            `${allCaretakers.length} caretaker${allCaretakers.length !== 1 ? 's' : ''}`;
+
+        if (allCaretakers.length === 0) {
+            grid.innerHTML = `<div class="empty-state">
+        <div class="icon">🔑</div>
+        <p>No caretakers registered yet.</p>
+        <p style="margin-top:8px;font-size:13px">
+          Go to
+          <a href="/register.html" style="color:var(--primary)">Register</a>
+          and create an account with role <strong>Caretaker</strong>.
+        </p>
+      </div>`;
+            return;
+        }
+
+        grid.innerHTML = allCaretakers.map(c => `
+      <div class="caretaker-card">
+        <div class="caretaker-avatar">${c.name[0].toUpperCase()}</div>
+        <div class="caretaker-info">
+          <div class="caretaker-name">${c.name}</div>
+          <div class="caretaker-meta">
+            ✉ ${c.email}
+            ${c.phone ? `&nbsp;·&nbsp; 📱 ${c.phone}` : ''}
+          </div>
+          ${c.assignedProperty
+            ? `<div class="assigned-badge">
+                🏢 ${c.assignedProperty.name}
+                &nbsp;·&nbsp;
+                📍 ${c.assignedProperty.location}
+              </div>`
+            : `<div class="unassigned-badge">⚠️ No property assigned</div>`
+        }
+        </div>
+        <div class="caretaker-actions">
+          <button class="btn-assign"
+            data-id="${c.id}"
+            data-name="${c.name}"
+            onclick="openAssignModal(this)">
+            ${c.assignedProperty ? '🔄 Reassign' : '+ Assign'}
+          </button>
+          ${c.assignedProperty ? `
+          <button class="btn-unassign"
+            data-id="${c.id}"
+            data-name="${c.name}"
+            onclick="unassign(this)">
+            Remove
+          </button>` : ''}
+        </div>
+      </div>
+    `).join('');
+    }
+
+    function openAssignModal(btn) {
+        selectedCaretakerId = parseInt(btn.dataset.id);
+        document.getElementById('modalCaretakerName').textContent = btn.dataset.name;
+        document.getElementById('assignAlert').className = 'alert';
+
+        const select = document.getElementById('propertySelect');
+        if (allProperties.length === 0) {
+            select.innerHTML = '<option value="">No properties available</option>';
+        } else {
+            select.innerHTML = '<option value="">Select a property...</option>' +
+                allProperties.map(p => `
+          <option value="${p.id}">${p.name} — ${p.location}</option>
+        `).join('');
+        }
+        document.getElementById('assignModal').classList.add('open');
+    }
+
+    function closeModal() {
+        document.getElementById('assignModal').classList.remove('open');
+        selectedCaretakerId = null;
+    }
+
+    function handleBackdrop(event) {
+        if (event.target === document.getElementById('assignModal')) closeModal();
+    }
+
+    async function confirmAssign() {
+        const btn        = document.getElementById('assignBtn');
+        const alert      = document.getElementById('assignAlert');
+        const propertyId = document.getElementById('propertySelect').value;
+
+        if (!propertyId) {
+            alert.textContent = 'Please select a property';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+        try {
+            await CaretakerAPI.assign(selectedCaretakerId, parseInt(propertyId));
+            closeModal();
+            await loadData();
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    async function unassign(btn) {
+        const id   = parseInt(btn.dataset.id);
+        const name = btn.dataset.name;
+        if (!confirm(`Remove property assignment from ${name}?`)) return;
+        try {
+            await CaretakerAPI.unassign(id);
+            await loadData();
+        } catch (err) { alert(err.message); }
+    }
+
+    loadData();
+</script>
+</body>
+</html>

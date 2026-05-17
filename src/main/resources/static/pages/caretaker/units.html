@@ -3,26 +3,28 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Units — RentEase</title>
+    <title>My Units — RentEase</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="/css/style.css"/>
     <style>
-        .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
-        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); transition:all .15s; }
+        .property-header { background:var(--primary-light); border:1px solid var(--primary); border-radius:var(--radius); padding:14px 18px; margin-bottom:20px; font-size:14px; color:var(--primary); font-weight:500; }
+        .filters { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; overflow-x:auto; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); white-space:nowrap; flex-shrink:0; }
         .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
         .units-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
         .unit-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
         .unit-top  { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
         .unit-number { font-size:18px; font-weight:700; }
-        .unit-property { font-size:13px; color:var(--text-2); margin-top:2px; }
         .unit-details { font-size:13px; color:var(--text-2); margin-bottom:12px; }
         .unit-details span { display:block; margin-bottom:3px; }
         .unit-tenant { background:var(--primary-light); border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:12px; }
-        .unit-tenant .name { font-weight:600; color:var(--primary); }
-        .unit-tenant .phone { color:var(--text-2); margin-top:2px; }
+        .unit-tenant .t-name  { font-weight:600; color:var(--primary); }
+        .unit-tenant .t-phone { color:var(--text-2); margin-top:2px; }
         .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); grid-column:1/-1; }
         .empty-state .icon { font-size:48px; margin-bottom:12px; }
+        .no-property { background:#FEF2F2; border:1px solid #FECACA; border-radius:var(--radius); padding:24px; text-align:center; }
+        .no-property h3 { color:var(--error); font-size:16px; margin-bottom:8px; }
     </style>
 </head>
 <body>
@@ -31,7 +33,7 @@
         <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
         <nav class="sidebar-nav">
             <a href="/pages/caretaker/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
-            <a href="/pages/caretaker/units.html"       class="nav-item active"><span class="nav-icon">🏠</span> Units</a>
+            <a href="/pages/caretaker/units.html"       class="nav-item active"><span class="nav-icon">🏠</span> My Units</a>
             <a href="/pages/caretaker/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
             <a href="/pages/caretaker/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
         </nav>
@@ -42,29 +44,35 @@
 
     <main class="main-content">
         <div class="topbar">
-            <h1>Units</h1>
+            <h1>My Units</h1>
             <div class="user-pill">
                 <div class="avatar" id="userAvatar">C</div>
                 <span id="userName">Caretaker</span>
             </div>
         </div>
 
-        <div class="filters">
-            <button class="filter-btn active" data-filter="ALL"              onclick="setFilter(this)">All</button>
-            <button class="filter-btn"        data-filter="VACANT"           onclick="setFilter(this)">Vacant</button>
-            <button class="filter-btn"        data-filter="OCCUPIED"         onclick="setFilter(this)">Occupied</button>
-            <button class="filter-btn"        data-filter="UNDER_MAINTENANCE" onclick="setFilter(this)">Under maintenance</button>
+        <div id="noPropertyWarning" class="no-property" style="display:none">
+            <h3>⚠️ No property assigned</h3>
+            <p>Contact your administrator to be assigned a property.</p>
         </div>
 
-        <p style="color:var(--text-2);font-size:14px;margin-bottom:16px" id="unitCount">Loading...</p>
-        <div class="units-grid" id="unitsGrid">
-            <div class="empty-state"><div class="icon">🏠</div><p>Loading units...</p></div>
+        <div id="mainContent" style="display:none">
+            <div class="property-header" id="propertyHeader">🏢 Loading...</div>
+            <div class="filters">
+                <button class="filter-btn active" data-filter="ALL"               onclick="setFilter(this)">All</button>
+                <button class="filter-btn"        data-filter="VACANT"            onclick="setFilter(this)">Vacant</button>
+                <button class="filter-btn"        data-filter="OCCUPIED"          onclick="setFilter(this)">Occupied</button>
+                <button class="filter-btn"        data-filter="UNDER_MAINTENANCE" onclick="setFilter(this)">Under maintenance</button>
+            </div>
+            <p style="color:var(--text-2);font-size:14px;margin-bottom:16px" id="unitCount">Loading...</p>
+            <div class="units-grid" id="unitsGrid"></div>
         </div>
     </main>
 </div>
 
 <script src="/js/api.js"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/sidebar.js"></script>
 <script>
     requireAuth();
     const user = Auth.getUser();
@@ -74,29 +82,25 @@
     }
 
     let allUnits      = [];
-    let allTenants    = [];
     let currentFilter = 'ALL';
 
     const statusBadge = {
-        VACANT:            'badge-warning',
-        OCCUPIED:          'badge-success',
-        UNDER_MAINTENANCE: 'badge-error',
+        VACANT:'badge-warning', OCCUPIED:'badge-success', UNDER_MAINTENANCE:'badge-error',
     };
 
-    async function loadData() {
+    async function loadUnits() {
         try {
-            const [properties, tenants] = await Promise.all([
-                PropertyAPI.list(),
-                TenantAPI.list(),
-            ]);
-            allTenants = tenants;
-
-            // Flatten all units from all properties
-            const unitPromises = properties.map(p => PropertyAPI.getUnits(p.id));
-            const unitArrays   = await Promise.all(unitPromises);
-            allUnits = unitArrays.flat();
+            const propData = await CaretakerAPI.myProperty();
+            document.getElementById('propertyHeader').textContent =
+                `🏢 ${propData.property.name} — 📍 ${propData.property.location}`;
+            document.getElementById('noPropertyWarning').style.display = 'none';
+            document.getElementById('mainContent').style.display       = 'block';
+            allUnits = await CaretakerAPI.myUnits();
             renderUnits();
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            document.getElementById('noPropertyWarning').style.display = 'block';
+            document.getElementById('mainContent').style.display       = 'none';
+        }
     }
 
     function renderUnits() {
@@ -115,38 +119,33 @@
             return;
         }
 
-        grid.innerHTML = list.map(u => {
-            const tenant = allTenants.find(t => t.unitId === u.id && t.status === 'ACTIVE');
-            return `
-        <div class="unit-card">
-          <div class="unit-top">
-            <div>
-              <div class="unit-number">Unit ${u.houseNumber}</div>
-              <div class="unit-property">🏢 ${u.propertyName}</div>
-            </div>
-            <span class="badge ${statusBadge[u.status]||'badge-info'}">
-              ${u.status.replace(/_/g,' ')}
-            </span>
-          </div>
-          <div class="unit-details">
-            <span>🛏 ${u.category.replace(/_/g,' ')}</span>
-            <span>🏗 Floor ${u.floor === 0 ? 'G' : u.floor}</span>
-            <span>💰 KES ${Number(u.rentAmount).toLocaleString()}/mo</span>
-          </div>
-          ${tenant ? `
-            <div class="unit-tenant">
-              <div class="name">👤 ${tenant.name}</div>
-              <div class="phone">📱 ${tenant.phone || '—'}</div>
-            </div>` : ''}
-          ${u.status === 'VACANT' ? `
-            <a href="/pages/caretaker/tenants.html"
-               class="btn btn-primary"
-               style="font-size:13px;height:38px;text-decoration:none;display:flex;align-items:center;justify-content:center;border-radius:8px">
-              + Assign tenant
-            </a>` : ''}
+        grid.innerHTML = list.map(u => `
+      <div class="unit-card">
+        <div class="unit-top">
+          <div><div class="unit-number">Unit ${u.houseNumber}</div></div>
+          <span class="badge ${statusBadge[u.status]||'badge-info'}">
+            ${u.status.replace(/_/g,' ')}
+          </span>
         </div>
-      `;
-        }).join('');
+        <div class="unit-details">
+          <span>🛏 ${u.category.replace(/_/g,' ')}</span>
+          <span>🏗 Floor ${u.floor === 0 ? 'G' : u.floor}</span>
+          <span>💰 KES ${Number(u.rentAmount).toLocaleString()}/mo</span>
+        </div>
+        ${u.tenantName ? `
+          <div class="unit-tenant">
+            <div class="t-name">👤 ${u.tenantName}</div>
+            <div class="t-phone">📱 ${u.tenantPhone || '—'}</div>
+          </div>` : ''}
+        ${u.status === 'VACANT' ? `
+          <a href="/pages/caretaker/tenants.html"
+             class="btn btn-primary"
+             style="font-size:13px;height:38px;text-decoration:none;display:flex;
+                    align-items:center;justify-content:center;border-radius:8px">
+            + Assign tenant
+          </a>` : ''}
+      </div>
+    `).join('');
     }
 
     function setFilter(btn) {
@@ -156,7 +155,7 @@
         renderUnits();
     }
 
-    loadData();
+    loadUnits();
 </script>
 </body>
 </html>

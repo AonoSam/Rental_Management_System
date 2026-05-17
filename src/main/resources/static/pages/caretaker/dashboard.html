@@ -8,14 +8,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="/css/style.css"/>
     <style>
-        .welcome-card { background:var(--primary); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; }
+        .welcome-card { background:var(--primary); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
         .welcome-card h2 { font-size:22px; font-weight:700; margin-bottom:4px; }
         .welcome-card p  { color:rgba(255,255,255,.8); font-size:14px; }
+        .property-badge  { display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.2); border-radius:20px; padding:6px 14px; font-size:13px; font-weight:500; color:#fff; margin-top:10px; flex-wrap:wrap; }
         .quick-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
         .action-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; text-decoration:none; display:block; transition:all .15s; }
         .action-card:hover { border-color:var(--primary); transform:translateY(-2px); }
         .action-icon  { font-size:32px; margin-bottom:8px; }
         .action-label { font-size:13px; font-weight:600; color:var(--text-1); }
+        .no-property  { background:#FEF2F2; border:1px solid #FECACA; border-radius:var(--radius); padding:32px 24px; text-align:center; }
+        .no-property h3 { color:var(--error); font-size:18px; margin-bottom:10px; }
+        .no-property p  { color:var(--text-2); font-size:14px; line-height:1.6; }
     </style>
 </head>
 <body>
@@ -24,7 +28,7 @@
         <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
         <nav class="sidebar-nav">
             <a href="/pages/caretaker/dashboard.html"   class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
-            <a href="/pages/caretaker/units.html"       class="nav-item"><span class="nav-icon">🏠</span> Units</a>
+            <a href="/pages/caretaker/units.html"       class="nav-item"><span class="nav-icon">🏠</span> My Units</a>
             <a href="/pages/caretaker/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
             <a href="/pages/caretaker/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
         </nav>
@@ -42,67 +46,94 @@
             </div>
         </div>
 
-        <div class="welcome-card">
-            <div>
-                <h2 id="welcomeName">Welcome back!</h2>
-                <p>Manage units, tenants and maintenance requests</p>
-            </div>
-            <div style="font-size:48px">🔑</div>
+        <!-- Not assigned warning -->
+        <div id="noPropertyWarning" class="no-property" style="display:none">
+            <h3>⚠️ No property assigned yet</h3>
+            <p>You have not been assigned to a property.<br>
+                Please contact your administrator to get assigned.</p>
         </div>
 
-        <div class="stat-grid" style="margin-bottom:24px">
-            <div class="stat-card">
-                <div class="stat-icon blue">🏠</div>
-                <div><div class="stat-label">Total units</div><div class="stat-value" id="totalUnits">—</div></div>
+        <!-- Main content shown after assignment -->
+        <div id="mainContent" style="display:none">
+            <div class="welcome-card">
+                <div>
+                    <h2 id="welcomeName">Welcome back!</h2>
+                    <p>You are managing:</p>
+                    <div class="property-badge">
+                        🏢 <span id="propertyName">—</span>
+                        &nbsp;·&nbsp;
+                        📍 <span id="propertyLocation">—</span>
+                    </div>
+                </div>
+                <div style="font-size:48px">🔑</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon green">✅</div>
-                <div><div class="stat-label">Occupied</div><div class="stat-value" id="occupiedUnits">—</div></div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon amber">🔓</div>
-                <div><div class="stat-label">Vacant</div><div class="stat-value" id="vacantUnits">—</div></div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon purple">🔧</div>
-                <div><div class="stat-label">Pending maintenance</div><div class="stat-value" id="pendingMaintenance">—</div></div>
-            </div>
-        </div>
 
-        <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Quick actions</h3>
-        <div class="quick-actions">
-            <a href="/pages/caretaker/units.html" class="action-card">
-                <div class="action-icon">🏠</div><div class="action-label">View units</div>
-            </a>
-            <a href="/pages/caretaker/tenants.html" class="action-card">
-                <div class="action-icon">👥</div><div class="action-label">Add tenant</div>
-            </a>
-            <a href="/pages/caretaker/maintenance.html" class="action-card">
-                <div class="action-icon">🔧</div><div class="action-label">Maintenance</div>
-            </a>
+            <div class="stat-grid" style="margin-bottom:24px">
+                <div class="stat-card">
+                    <div class="stat-icon blue">🏠</div>
+                    <div><div class="stat-label">Total units</div><div class="stat-value" id="totalUnits">—</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">✅</div>
+                    <div><div class="stat-label">Occupied</div><div class="stat-value" id="occupiedUnits">—</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon amber">🔓</div>
+                    <div><div class="stat-label">Vacant</div><div class="stat-value" id="vacantUnits">—</div></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">🔧</div>
+                    <div><div class="stat-label">Pending maintenance</div><div class="stat-value" id="pendingMaintenance">—</div></div>
+                </div>
+            </div>
+
+            <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Quick actions</h3>
+            <div class="quick-actions">
+                <a href="/pages/caretaker/units.html" class="action-card">
+                    <div class="action-icon">🏠</div><div class="action-label">My units</div>
+                </a>
+                <a href="/pages/caretaker/tenants.html" class="action-card">
+                    <div class="action-icon">👥</div><div class="action-label">Add tenant</div>
+                </a>
+                <a href="/pages/caretaker/maintenance.html" class="action-card">
+                    <div class="action-icon">🔧</div><div class="action-label">Maintenance</div>
+                </a>
+            </div>
         </div>
     </main>
 </div>
+
 <script src="/js/api.js"></script>
 <script src="/js/auth.js"></script>
+<script src="/js/sidebar.js"></script>
 <script>
     requireAuth();
     const user = Auth.getUser();
     if (user) {
         document.getElementById('userName').textContent   = user.name;
         document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
-        document.getElementById('welcomeName').textContent = 'Welcome back, ' + user.name.split(' ')[0] + '!';
+        document.getElementById('welcomeName').textContent =
+            'Welcome back, ' + user.name.split(' ')[0] + '!';
     }
-    async function loadStats() {
+
+    async function loadDashboard() {
         try {
-            const s = await apiFetch('/tenants/caretaker/overview');
-            document.getElementById('totalUnits').textContent        = s.totalUnits;
-            document.getElementById('occupiedUnits').textContent     = s.occupiedUnits;
-            document.getElementById('vacantUnits').textContent       = s.vacantUnits;
-            document.getElementById('pendingMaintenance').textContent= s.pendingMaintenance;
-        } catch (err) { console.error(err); }
+            const data = await CaretakerAPI.myProperty();
+            document.getElementById('noPropertyWarning').style.display = 'none';
+            document.getElementById('mainContent').style.display       = 'block';
+            document.getElementById('propertyName').textContent     = data.property.name;
+            document.getElementById('propertyLocation').textContent = data.property.location;
+            document.getElementById('totalUnits').textContent        = data.totalUnits;
+            document.getElementById('occupiedUnits').textContent     = data.occupiedUnits;
+            document.getElementById('vacantUnits').textContent       = data.vacantUnits;
+            document.getElementById('pendingMaintenance').textContent= data.pendingMaintenance;
+        } catch (err) {
+            document.getElementById('noPropertyWarning').style.display = 'block';
+            document.getElementById('mainContent').style.display       = 'none';
+        }
     }
-    loadStats();
+
+    loadDashboard();
 </script>
 </body>
 </html>

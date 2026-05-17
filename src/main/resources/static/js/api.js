@@ -96,3 +96,13 @@ const ReportAPI = {
     occupancy:() => apiFetch('/reports/occupancy'),
     outstanding:()=> apiFetch('/reports/outstanding'),
 };
+// Caretaker
+const CaretakerAPI = {
+    list:       ()         => apiFetch('/caretakers'),
+    assign:     (cId, pId) => apiFetch(`/caretakers/${cId}/assign/${pId}`,
+        { method: 'PUT' }),
+    unassign:   (cId)      => apiFetch(`/caretakers/${cId}/unassign`,
+        { method: 'PUT' }),
+    myProperty: ()         => apiFetch('/caretakers/my-property'),
+    myUnits:    ()         => apiFetch('/caretakers/my-units'),
+};
