@@ -138,4 +138,43 @@ public class CaretakerService {
                 })
                 .collect(Collectors.toList());
     }
+    // Tenants for caretaker's assigned property only
+    public List<Map<String, Object>> getMyTenants(Long userId) {
+        User caretaker = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (caretaker.getAssignedProperty() == null)
+            return List.of();
+
+        Long propertyId = caretaker.getAssignedProperty().getId();
+
+        // Get all units in this property
+        List<Long> unitIds = unitRepository
+                .findByPropertyId(propertyId)
+                .stream()
+                .map(u -> u.getId())
+                .collect(Collectors.toList());
+
+        // Get active tenants whose unit belongs to this property
+        return tenantRepository.findAll().stream()
+                .filter(t -> t.getUnit() != null
+                        && unitIds.contains(t.getUnit().getId()))
+                .map(t -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",          t.getId());
+                    m.put("name",        t.getUser().getName());
+                    m.put("email",       t.getUser().getEmail());
+                    m.put("phone",       t.getUser().getPhone());
+                    m.put("nationalId",  t.getNationalId());
+                    m.put("unitNumber",  t.getUnit().getHouseNumber());
+                    m.put("propertyName",t.getUnit().getProperty().getName());
+                    m.put("rentAmount",  t.getUnit().getRentAmount());
+                    m.put("leaseStart",  t.getLeaseStart());
+                    m.put("leaseEnd",    t.getLeaseEnd());
+                    m.put("status",      t.getStatus().name());
+                    m.put("tenantId",    t.getId());
+                    return m;
+                })
+                .collect(Collectors.toList());
+    }
 }

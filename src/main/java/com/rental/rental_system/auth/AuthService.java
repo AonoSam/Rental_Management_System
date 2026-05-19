@@ -7,6 +7,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.rental.rental_system.session.SessionService;
 
 @Service
 @RequiredArgsConstructor
@@ -16,6 +17,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final SessionService sessionService;
 
     public AuthResponse register(RegisterRequest req) {
         if (userRepository.existsByEmail(req.getEmail()))
@@ -36,7 +38,10 @@ public class AuthService {
                 .build();
     }
 
-    public AuthResponse login(LoginRequest req) {
+
+
+    public AuthResponse login(LoginRequest req,
+                              String ipAddress, String userAgent) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         req.getEmail(), req.getPassword()));
@@ -46,6 +51,9 @@ public class AuthService {
 
         String token = jwtService.generateToken(user);
 
+        // Record the session
+        sessionService.recordLogin(user, token, ipAddress, userAgent);
+
         return AuthResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
@@ -54,5 +62,8 @@ public class AuthService {
                 .role(user.getRole().name())
                 .token(token)
                 .build();
+    }
+    public void logout(String token) {
+        sessionService.recordLogout(token);
     }
 }

@@ -1,6 +1,7 @@
 package com.rental.rental_system.config;
 
 import com.rental.rental_system.auth.JwtService;
+import com.rental.rental_system.session.SessionService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,8 +20,9 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private final JwtService jwtService;
+    private final JwtService             jwtService;
     private final UserDetailsServiceImpl userDetailsService;
+    private final SessionService         sessionService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -44,7 +46,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 username = jwtService.extractUsername(token);
             } catch (Exception e) {
-                // Bad token — continue without authentication
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -55,24 +56,35 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 try {
                     UserDetails userDetails =
                             userDetailsService.loadUserByUsername(username);
+
                     if (jwtService.isTokenValid(token, userDetails)) {
+
+                        // ── Force logout check ──────────────────────
+                        if (sessionService.isForceLoggedOut(token)) {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"message\":\"Your session was terminated by the administrator\"}");
+                            return;
+                        }
+
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(
-                                        userDetails, null, userDetails.getAuthorities());
+                                        userDetails, null,
+                                        userDetails.getAuthorities());
                         authToken.setDetails(
                                 new WebAuthenticationDetailsSource()
                                         .buildDetails(request));
                         SecurityContextHolder.getContext()
                                 .setAuthentication(authToken);
                     }
+
                 } catch (Exception e) {
-                    // User not found or token invalid — continue without auth
                     SecurityContextHolder.clearContext();
                 }
             }
 
         } catch (Exception e) {
-            // Catch-all — never let the filter throw, always continue
             SecurityContextHolder.clearContext();
         }
 

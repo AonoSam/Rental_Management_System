@@ -50,4 +50,10 @@ public class CaretakerController {
         return ResponseEntity.ok(
                 caretakerService.getMyUnits(currentUser.getId()));
     }
+    @GetMapping("/my-tenants")
+    public ResponseEntity<List<Map<String, Object>>> getMyTenants(
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(
+                caretakerService.getMyTenants(currentUser.getId()));
+    }
 }

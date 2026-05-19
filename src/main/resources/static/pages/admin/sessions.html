@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Sessions — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header  { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .filters      { display:flex; gap:10px; margin-bottom:20px; overflow-x:auto; }
+        .filter-btn   { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); white-space:nowrap; transition:all .15s; }
+        .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+
+        .session-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; }
+        .session-card.blocked { border-color:#FECACA; background:#FEF2F2; }
+        .session-avatar { width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; flex-shrink:0; color:#fff; }
+        .avatar-admin     { background:#7C3AED; }
+        .avatar-tenant    { background:#0891B2; }
+        .avatar-caretaker { background:#059669; }
+
+        .session-info   { flex:1; min-width:180px; }
+        .session-name   { font-size:15px; font-weight:600; margin-bottom:2px; }
+        .session-email  { font-size:13px; color:var(--text-2); margin-bottom:8px; }
+        .session-meta   { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--text-2); }
+        .session-meta span { display:flex; align-items:center; gap:4px; background:var(--bg); padding:3px 8px; border-radius:20px; }
+
+        .session-status { display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+        .online-dot     { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+        .dot-green      { width:8px; height:8px; border-radius:50%; background:#16A34A; animation:pulse 2s infinite; }
+        .dot-gray       { width:8px; height:8px; border-radius:50%; background:#9CA3AF; }
+        @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+
+        .session-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; width:100%; }
+        .btn-force-out { padding:6px 14px; border-radius:8px; background:none; border:1.5px solid var(--warning); color:#D97706; font-size:12px; font-weight:500; cursor:pointer; }
+        .btn-force-out:hover { background:#FFFBEB; }
+        .btn-block   { padding:6px 14px; border-radius:8px; background:none; border:1.5px solid #FECACA; color:var(--error); font-size:12px; font-weight:500; cursor:pointer; }
+        .btn-block:hover   { background:#FEF2F2; }
+        .btn-unblock { padding:6px 14px; border-radius:8px; background:none; border:1.5px solid #BBF7D0; color:var(--success); font-size:12px; font-weight:500; cursor:pointer; }
+        .btn-unblock:hover { background:#F0FDF4; }
+
+        .sessions-grid { display:grid; gap:12px; }
+        .empty-state   { text-align:center; padding:60px 20px; color:var(--text-2); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+
+        .live-badge { display:inline-flex; align-items:center; gap:6px; background:#F0FDF4; color:var(--success); border:1px solid #BBF7D0; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; }
+        .blocked-badge { display:inline-flex; align-items:center; gap:6px; background:#FEF2F2; color:var(--error); border:1px solid #FECACA; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; }
+
+        .info-bar { background:var(--primary-light); border:1px solid var(--primary); border-radius:var(--radius); padding:12px 18px; margin-bottom:20px; font-size:13px; color:var(--primary); display:flex; align-items:center; gap:8px; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"  class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"     class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/payments.html"    class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/caretaker.html"  class="nav-item"><span class="nav-icon">🔑</span> Caretakers</a>
+            <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            <a href="/pages/admin/sessions.html"    class="nav-item active"><span class="nav-icon">🖥</span> Sessions</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Sessions</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-grid" style="margin-bottom:24px">
+            <div class="stat-card">
+                <div class="stat-icon green">🟢</div>
+                <div>
+                    <div class="stat-label">Online now</div>
+                    <div class="stat-value" id="onlineCount">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">📋</div>
+                <div>
+                    <div class="stat-label">Total sessions today</div>
+                    <div class="stat-value" id="totalCount">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon error">🚫</div>
+                <div>
+                    <div class="stat-label">Blocked users</div>
+                    <div class="stat-value" id="blockedCount">—</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-bar">
+            🔄 Auto-refreshes every 30 seconds &nbsp;·&nbsp;
+            <span id="lastRefresh">Last updated: just now</span>
+            <button onclick="loadSessions()" style="margin-left:auto;background:none;border:1.5px solid var(--primary);color:var(--primary);border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:500">
+                ↻ Refresh now
+            </button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <button class="filter-btn active" data-filter="ALL"       onclick="setFilter(this)">All</button>
+            <button class="filter-btn"        data-filter="ACTIVE"    onclick="setFilter(this)">🟢 Online</button>
+            <button class="filter-btn"        data-filter="ADMIN"     onclick="setFilter(this)">Admin</button>
+            <button class="filter-btn"        data-filter="TENANT"    onclick="setFilter(this)">Tenant</button>
+            <button class="filter-btn"        data-filter="CARETAKER" onclick="setFilter(this)">Caretaker</button>
+            <button class="filter-btn"        data-filter="BLOCKED"   onclick="setFilter(this)">🚫 Blocked</button>
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="sessionCount">Loading...</p>
+        </div>
+
+        <div class="sessions-grid" id="sessionsGrid">
+            <div class="empty-state"><div class="icon">🖥</div><p>Loading sessions...</p></div>
+        </div>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/sidebar.js"></script>
+<script>
+    requireAuth();
+
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allSessions   = [];
+    let currentFilter = 'ALL';
+    let refreshTimer  = null;
+
+    const avatarClass = {
+        ADMIN:     'avatar-admin',
+        TENANT:    'avatar-tenant',
+        CARETAKER: 'avatar-caretaker',
+    };
+
+    const roleLabel = {
+        ADMIN:     '🟣 Admin',
+        TENANT:    '🔵 Tenant',
+        CARETAKER: '🟢 Caretaker',
+    };
+
+    // ── Load all sessions ────────────────────────────────
+    async function loadSessions() {
+        try {
+            const [active, all] = await Promise.all([
+                SessionAPI.active(),
+                SessionAPI.all(),
+            ]);
+
+            // Merge: active sessions + history, deduplicated by id
+            const map = new Map();
+            [...active, ...all].forEach(s => map.set(s.id, s));
+            allSessions = Array.from(map.values())
+                .sort((a, b) => new Date(b.loggedInAt) - new Date(a.loggedInAt));
+
+            // Stats
+            const onlineCount  = active.length;
+            const blockedCount = allSessions.filter(s => s.isUserBlocked).length;
+            document.getElementById('onlineCount').textContent  = onlineCount;
+            document.getElementById('totalCount').textContent   = allSessions.length;
+            document.getElementById('blockedCount').textContent = blockedCount;
+
+            // Last refresh time
+            document.getElementById('lastRefresh').textContent =
+                'Last updated: ' + new Date().toLocaleTimeString();
+
+            renderSessions();
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Render sessions ──────────────────────────────────
+    function renderSessions() {
+        const grid = document.getElementById('sessionsGrid');
+        let list   = allSessions;
+
+        if (currentFilter === 'ACTIVE')
+            list = allSessions.filter(s => s.active);
+        else if (currentFilter === 'BLOCKED')
+            list = allSessions.filter(s => s.isUserBlocked);
+        else if (['ADMIN','TENANT','CARETAKER'].includes(currentFilter))
+            list = allSessions.filter(s => s.userRole === currentFilter);
+
+        document.getElementById('sessionCount').textContent =
+            `${list.length} session${list.length !== 1 ? 's' : ''}`;
+
+        if (list.length === 0) {
+            grid.innerHTML = `<div class="empty-state">
+        <div class="icon">🖥</div>
+        <p>No sessions found.</p>
+      </div>`;
+            return;
+        }
+
+        grid.innerHTML = list.map(s => `
+      <div class="session-card ${s.isUserBlocked ? 'blocked' : ''}">
+
+        <!-- Avatar -->
+        <div class="session-avatar ${avatarClass[s.userRole] || 'avatar-tenant'}">
+          ${s.userName[0].toUpperCase()}
+        </div>
+
+        <!-- Info -->
+        <div class="session-info">
+          <div class="session-name">
+            ${s.userName}
+            ${s.isUserBlocked
+            ? `<span class="blocked-badge" style="margin-left:8px">🚫 Blocked</span>`
+            : s.active
+                ? `<span class="live-badge" style="margin-left:8px">
+                    <span class="dot-green"></span> Online
+                   </span>`
+                : ''}
+          </div>
+          <div class="session-email">${s.userEmail}</div>
+          <div class="session-meta">
+            <span>👤 ${roleLabel[s.userRole] || s.userRole}</span>
+            <span>🌐 ${s.ipAddress || '—'}</span>
+            <span>${s.deviceInfo || '🖥 Unknown'}</span>
+            <span>⏰ In: ${formatTime(s.loggedInAt)}</span>
+            ${s.loggedOutAt
+            ? `<span>⏱ Out: ${formatTime(s.loggedOutAt)}</span>`
+            : ''}
+            ${s.forceLoggedOut
+            ? `<span style="color:var(--error)">⚡ Force logged out</span>`
+            : ''}
+          </div>
+
+          <!-- Actions -->
+          <div class="session-actions">
+            ${s.active && !s.isUserBlocked ? `
+              <button class="btn-force-out"
+                data-userid="${s.userId}"
+                data-name="${s.userName}"
+                onclick="forceLogout(this)">
+                ⚡ Force logout
+              </button>` : ''}
+            ${!s.isUserBlocked ? `
+              <button class="btn-block"
+                data-userid="${s.userId}"
+                data-name="${s.userName}"
+                onclick="blockUser(this)">
+                🚫 Block user
+              </button>` : `
+              <button class="btn-unblock"
+                data-userid="${s.userId}"
+                data-name="${s.userName}"
+                onclick="unblockUser(this)">
+                ✅ Unblock user
+              </button>`}
+          </div>
+        </div>
+
+        <!-- Status badge -->
+        <div class="session-status">
+          ${s.active
+            ? `<div class="online-dot"><span class="dot-green"></span> Live</div>`
+            : `<div class="online-dot"><span class="dot-gray"></span> Offline</div>`}
+        </div>
+
+      </div>
+    `).join('');
+    }
+
+    // ── Filter ───────────────────────────────────────────
+    function setFilter(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderSessions();
+    }
+
+    // ── Force logout ─────────────────────────────────────
+    async function forceLogout(btn) {
+        const userId = parseInt(btn.dataset.userid);
+        const name   = btn.dataset.name;
+        if (!confirm(`Force logout ${name}? They will be signed out immediately.`)) return;
+        try {
+            await SessionAPI.forceLogout(userId);
+            await loadSessions();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Block user ───────────────────────────────────────
+    async function blockUser(btn) {
+        const userId = parseInt(btn.dataset.userid);
+        const name   = btn.dataset.name;
+        if (!confirm(`Block ${name}? They will not be able to log in.`)) return;
+        try {
+            await SessionAPI.block(userId);
+            await loadSessions();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Unblock user ─────────────────────────────────────
+    async function unblockUser(btn) {
+        const userId = parseInt(btn.dataset.userid);
+        const name   = btn.dataset.name;
+        if (!confirm(`Unblock ${name}? They will be able to log in again.`)) return;
+        try {
+            await SessionAPI.unblock(userId);
+            await loadSessions();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Format time ──────────────────────────────────────
+    function formatTime(dt) {
+        if (!dt) return '—';
+        const d = new Date(dt);
+        return d.toLocaleDateString('en-KE', {
+            day:    '2-digit',
+            month:  'short',
+            hour:   '2-digit',
+            minute: '2-digit',
+        });
+    }
+
+    // ── Auto refresh every 30 seconds ────────────────────
+    loadSessions();
+    refreshTimer = setInterval(loadSessions, 30000);
+
+    // Stop auto-refresh when page is hidden
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            clearInterval(refreshTimer);
+        } else {
+            loadSessions();
+            refreshTimer = setInterval(loadSessions, 30000);
+        }
+    });
+</script>
+</body>
+</html>

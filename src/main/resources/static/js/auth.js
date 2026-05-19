@@ -113,7 +113,16 @@ if (registerForm) {
 }
 
 // ── Logout ────────────────────────────────────────────
-function logout() {
+async function logout() {
+    try {
+        const token = Auth.getToken();
+        if (token) {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+        }
+    } catch (err) { console.error(err); }
     Auth.clear();
     window.location.href = '/login.html';
 }

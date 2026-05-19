@@ -9,9 +9,10 @@
     <link rel="stylesheet" href="/css/style.css"/>
     <style>
         .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
-        .filters { display:flex; gap:10px; margin-bottom:20px; }
-        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); transition:all .15s; }
+        .filters { display:flex; gap:10px; margin-bottom:20px; overflow-x:auto; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); white-space:nowrap; transition:all .15s; }
         .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+        .property-header { background:var(--primary-light); border:1px solid var(--primary); border-radius:var(--radius); padding:14px 18px; margin-bottom:20px; font-size:14px; color:var(--primary); font-weight:500; }
         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
         .modal-overlay.open { opacity:1; pointer-events:all; }
         .modal { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
@@ -22,16 +23,18 @@
         .section-divider { font-size:12px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.06em; margin:20px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
         select { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
         select:focus { border-color:var(--primary); }
-        .tenant-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; align-items:flex-start; gap:16px; }
+        .tenant-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
         .tenant-avatar { width:46px; height:46px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; flex-shrink:0; }
-        .tenant-info { flex:1; }
+        .tenant-info { flex:1; min-width:0; }
         .tenant-name { font-size:15px; font-weight:600; }
         .tenant-meta { font-size:13px; color:var(--text-2); display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
         .tenants-grid { display:grid; gap:12px; }
         .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); }
         .empty-state .icon { font-size:48px; margin-bottom:12px; }
         .btn-icon { width:34px; height:34px; border-radius:8px; border:1.5px solid var(--border); background:none; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .btn-icon:hover { border-color:var(--primary); }
+        .btn-icon:hover { border-color:var(--error); background:#FEF2F2; }
+        .no-property { background:#FEF2F2; border:1px solid #FECACA; border-radius:var(--radius); padding:32px; text-align:center; }
+        .no-property h3 { color:var(--error); font-size:16px; margin-bottom:8px; }
     </style>
 </head>
 <body>
@@ -40,7 +43,7 @@
         <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
         <nav class="sidebar-nav">
             <a href="/pages/caretaker/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
-            <a href="/pages/caretaker/units.html"       class="nav-item"><span class="nav-icon">🏠</span> Units</a>
+            <a href="/pages/caretaker/units.html"       class="nav-item"><span class="nav-icon">🏠</span> My Units</a>
             <a href="/pages/caretaker/tenants.html"     class="nav-item active"><span class="nav-icon">👥</span> Tenants</a>
             <a href="/pages/caretaker/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
         </nav>
@@ -58,20 +61,34 @@
             </div>
         </div>
 
-        <div class="page-header">
-            <p style="color:var(--text-2);font-size:14px" id="tenantCount">Loading...</p>
-            <button class="btn btn-primary" style="width:auto;padding:0 20px"
-                    onclick="openAddModal()">+ Add tenant</button>
+        <!-- No property warning -->
+        <div id="noPropertyWarning" style="display:none">
+            <div class="no-property">
+                <h3>⚠️ No property assigned</h3>
+                <p>Contact your administrator to be assigned a property.</p>
+            </div>
         </div>
 
-        <div class="filters">
-            <button class="filter-btn active" data-filter="ALL"    onclick="setFilter(this)">All</button>
-            <button class="filter-btn"        data-filter="ACTIVE" onclick="setFilter(this)">Active</button>
-            <button class="filter-btn"        data-filter="VACATED" onclick="setFilter(this)">Vacated</button>
-        </div>
+        <!-- Main content -->
+        <div id="mainContent" style="display:none">
+            <!-- Shows which property the caretaker is managing -->
+            <div class="property-header" id="propertyHeader">🏢 Loading...</div>
 
-        <div class="tenants-grid" id="tenantsGrid">
-            <div class="empty-state"><div class="icon">👥</div><p>Loading tenants...</p></div>
+            <div class="page-header">
+                <p style="color:var(--text-2);font-size:14px" id="tenantCount">Loading...</p>
+                <button class="btn btn-primary" style="width:auto;padding:0 20px"
+                        onclick="openAddModal()">+ Add tenant</button>
+            </div>
+
+            <div class="filters">
+                <button class="filter-btn active" data-filter="ALL"     onclick="setFilter(this)">All</button>
+                <button class="filter-btn"        data-filter="ACTIVE"  onclick="setFilter(this)">Active</button>
+                <button class="filter-btn"        data-filter="VACATED" onclick="setFilter(this)">Vacated</button>
+            </div>
+
+            <div class="tenants-grid" id="tenantsGrid">
+                <div class="empty-state"><div class="icon">👥</div><p>Loading tenants...</p></div>
+            </div>
         </div>
     </main>
 </div>
@@ -83,7 +100,6 @@
             <h3>Add tenant</h3>
             <button class="modal-close" onclick="closeModal()">×</button>
         </div>
-
         <div class="section-divider">Account details</div>
         <div class="form-group">
             <label>Full name</label>
@@ -104,7 +120,9 @@
             </div>
         </div>
         <div class="form-group">
-            <label>Password <span style="color:var(--text-2);font-size:12px">(default: tenant123)</span></label>
+            <label>Password
+                <span style="color:var(--text-2);font-size:12px">(default: tenant123)</span>
+            </label>
             <div class="input-wrap"><span class="icon">🔒</span>
                 <input type="password" id="tPassword" placeholder="Leave blank for default"/>
             </div>
@@ -169,6 +187,7 @@
 <script src="/js/sidebar.js"></script>
 <script>
     requireAuth();
+
     const user = Auth.getUser();
     if (user) {
         document.getElementById('userName').textContent   = user.name;
@@ -177,14 +196,33 @@
 
     let allTenants    = [];
     let currentFilter = 'ALL';
+    let myPropertyId  = null; // used to filter vacant units to this property only
 
-    async function loadTenants() {
+    // ── Load property info + tenants ─────────────────────
+    async function loadData() {
         try {
-            allTenants = await TenantAPI.list();
+            // Get caretaker's assigned property first
+            const propData = await CaretakerAPI.myProperty();
+            myPropertyId   = propData.property.id;
+
+            document.getElementById('propertyHeader').textContent =
+                `🏢 ${propData.property.name} — 📍 ${propData.property.location}`;
+            document.getElementById('noPropertyWarning').style.display = 'none';
+            document.getElementById('mainContent').style.display       = 'block';
+
+            // Load ONLY tenants from this property
+            allTenants = await CaretakerAPI.myTenants();
             renderTenants();
-        } catch (err) { console.error(err); }
+
+        } catch (err) {
+            // No property assigned
+            document.getElementById('noPropertyWarning').style.display = 'block';
+            document.getElementById('mainContent').style.display       = 'none';
+            console.error(err);
+        }
     }
 
+    // ── Render tenants ───────────────────────────────────
     function renderTenants() {
         const grid = document.getElementById('tenantsGrid');
         const list = currentFilter === 'ALL'
@@ -196,7 +234,8 @@
 
         if (list.length === 0) {
             grid.innerHTML = `<div class="empty-state">
-        <div class="icon">👥</div><p>No tenants found.</p>
+        <div class="icon">👥</div>
+        <p>No ${currentFilter === 'ALL' ? '' : currentFilter.toLowerCase()} tenants in this property.</p>
       </div>`;
             return;
         }
@@ -213,12 +252,18 @@
           <div class="tenant-meta">
             <span>📱 ${t.phone || '—'}</span>
             <span>🏠 ${t.unitNumber ? t.propertyName + ' · ' + t.unitNumber : 'No unit'}</span>
-            ${t.rentAmount ? `<span>💰 KES ${Number(t.rentAmount).toLocaleString()}/mo</span>` : ''}
+            ${t.rentAmount
+            ? `<span>💰 KES ${Number(t.rentAmount).toLocaleString()}/mo</span>`
+            : ''}
+            ${t.leaseStart
+            ? `<span>📅 From ${t.leaseStart}</span>`
+            : ''}
           </div>
         </div>
         ${t.status === 'ACTIVE' ? `
-        <button class="btn-icon" title="Vacate"
-          data-id="${t.id}" data-name="${t.name}"
+        <button class="btn-icon" title="Vacate tenant"
+          data-id="${t.tenantId}"
+          data-name="${t.name}"
           onclick="vacateTenant(this)">🚪</button>` : ''}
       </div>
     `).join('');
@@ -231,41 +276,56 @@
         renderTenants();
     }
 
+    // ── Add tenant modal ─────────────────────────────────
     async function openAddModal() {
-        document.getElementById('tName').value            = '';
-        document.getElementById('tEmail').value           = '';
-        document.getElementById('tPhone').value           = '';
-        document.getElementById('tPassword').value        = '';
-        document.getElementById('tNationalId').value      = '';
-        document.getElementById('tEmergencyContact').value= '';
-        document.getElementById('tEmergencyPhone').value  = '';
-        document.getElementById('tLeaseStart').value      = '';
-        document.getElementById('tLeaseEnd').value        = '';
-        document.getElementById('modalAlert').className   = 'alert';
-        document.getElementById('tUnit').innerHTML        = '<option value="">Loading...</option>';
+        // Reset all fields
+        document.getElementById('tName').value             = '';
+        document.getElementById('tEmail').value            = '';
+        document.getElementById('tPhone').value            = '';
+        document.getElementById('tPassword').value         = '';
+        document.getElementById('tNationalId').value       = '';
+        document.getElementById('tEmergencyContact').value = '';
+        document.getElementById('tEmergencyPhone').value   = '';
+        document.getElementById('tLeaseStart').value       = '';
+        document.getElementById('tLeaseEnd').value         = '';
+        document.getElementById('modalAlert').className    = 'alert';
+        document.getElementById('tUnit').innerHTML         = '<option value="">Loading...</option>';
+
+        // Open modal first
         document.getElementById('tenantModal').classList.add('open');
-        await loadVacantUnits();
+
+        // Load vacant units — filtered to this property only
+        await loadVacantUnitsForMyProperty();
     }
 
-    async function loadVacantUnits() {
+    async function loadVacantUnitsForMyProperty() {
+        const select = document.getElementById('tUnit');
         try {
-            const units  = await TenantAPI.vacantUnits();
-            const select = document.getElementById('tUnit');
-            if (units.length === 0) {
-                select.innerHTML = '<option value="">No vacant units available</option>';
+            // Get all vacant units then filter to caretaker's property
+            const units = await TenantAPI.vacantUnits();
+
+            // Filter to only show units from caretaker's assigned property
+            const myUnits = myPropertyId
+                ? units.filter(u => u.propertyId === myPropertyId)
+                : units;
+
+            if (myUnits.length === 0) {
+                select.innerHTML =
+                    '<option value="">No vacant units in your property</option>';
                 return;
             }
+
             select.innerHTML = '<option value="">Select a unit</option>' +
-                units.map(u => `
-          <option value="${u.id}">
-            ${u.propertyName} — ${u.houseNumber}
+                myUnits.map(u =>
+                    `<option value="${u.id}">
+            ${u.houseNumber}
             (${u.category.replace(/_/g,' ')})
             · KES ${Number(u.rentAmount).toLocaleString()}
-          </option>
-        `).join('');
+          </option>`
+                ).join('');
         } catch (err) {
-            document.getElementById('tUnit').innerHTML =
-                '<option value="">Could not load units</option>';
+            select.innerHTML = '<option value="">Could not load units</option>';
+            console.error(err);
         }
     }
 
@@ -277,12 +337,13 @@
         if (event.target === document.getElementById('tenantModal')) closeModal();
     }
 
+    // ── Save tenant ──────────────────────────────────────
     async function saveTenant() {
-        const btn   = document.getElementById('saveBtn');
-        const alert = document.getElementById('modalAlert');
-        const name  = document.getElementById('tName').value.trim();
-        const email = document.getElementById('tEmail').value.trim();
-        const unitId= document.getElementById('tUnit').value;
+        const btn    = document.getElementById('saveBtn');
+        const alert  = document.getElementById('modalAlert');
+        const name   = document.getElementById('tName').value.trim();
+        const email  = document.getElementById('tEmail').value.trim();
+        const unitId = document.getElementById('tUnit').value;
 
         if (!name || !email) {
             alert.textContent = 'Name and email are required';
@@ -313,7 +374,7 @@
                 leaseEnd:         document.getElementById('tLeaseEnd').value   || null,
             });
             closeModal();
-            await loadTenants();
+            await loadData(); // reload — shows updated tenant list
         } catch (err) {
             alert.textContent = err.message;
             alert.className   = 'alert alert-error show';
@@ -322,17 +383,19 @@
         }
     }
 
+    // ── Vacate tenant ────────────────────────────────────
     async function vacateTenant(btn) {
         const id   = parseInt(btn.dataset.id);
         const name = btn.dataset.name;
         if (!confirm(`Vacate ${name}? This will free their unit.`)) return;
         try {
             await TenantAPI.vacate(id);
-            await loadTenants();
+            await loadData();
         } catch (err) { alert(err.message); }
     }
 
-    loadTenants();
+    // ── Init ─────────────────────────────────────────────
+    loadData();
 </script>
 </body>
 </html>

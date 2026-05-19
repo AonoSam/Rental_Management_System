@@ -27,6 +27,18 @@ async function apiFetch(path, options = {}) {
         ...options,
     });
     const data = await res.json().catch(() => ({}));
+
+    // ── Handle force logout or blocked account ──
+    if (res.status === 401) {
+        const msg = data.message || '';
+        if (msg.includes('terminated') || msg.includes('session')) {
+            Auth.clear();
+            alert('⚠️ ' + msg);
+            window.location.href = '/login.html';
+            return;
+        }
+    }
+
     if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
     return data;
 }
@@ -105,4 +117,16 @@ const CaretakerAPI = {
         { method: 'PUT' }),
     myProperty: ()         => apiFetch('/caretakers/my-property'),
     myUnits:    ()         => apiFetch('/caretakers/my-units'),
+    myTenants:  ()         => apiFetch('/caretakers/my-tenants'),
+};
+// User Session
+const SessionAPI = {
+    active:      ()   => apiFetch('/sessions/active'),
+    all:         ()   => apiFetch('/sessions'),
+    forceLogout: (id) => apiFetch(`/sessions/force-logout/${id}`,
+        { method: 'PUT' }),
+    block:       (id) => apiFetch(`/sessions/block/${id}`,
+        { method: 'PUT' }),
+    unblock:     (id) => apiFetch(`/sessions/unblock/${id}`,
+        { method: 'PUT' }),
 };
