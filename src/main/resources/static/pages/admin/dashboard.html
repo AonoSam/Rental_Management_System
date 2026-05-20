@@ -92,6 +92,44 @@
             </div>
         </div>
 
+        <!-- Send Notice Card -->
+        <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+                <h3>📢 Send Notice</h3>
+            </div>
+            <div style="padding:20px">
+                <div class="form-group">
+                    <label>Send to</label>
+                    <select id="noticeTarget" style="width:100%;height:48px;padding:0 16px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;background:var(--surface);outline:none">
+                        <option value="ALL">Everyone (Tenants + Caretakers)</option>
+                        <option value="TENANTS">Tenants only</option>
+                        <option value="CARETAKERS">Caretakers only</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Title</label>
+                    <div class="input-wrap">
+                        <span class="icon">📢</span>
+                        <input type="text" id="noticeTitle"
+                               placeholder="e.g. Water Outage Notice"/>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Message</label>
+                    <textarea id="noticeMessage"
+                              placeholder="Type your message here..."
+                              style="width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;resize:vertical;outline:none;min-height:90px"></textarea>
+                </div>
+                <div id="noticeAlert" class="alert"></div>
+                <button class="btn btn-primary" id="sendNoticeBtn"
+                        style="width:auto;padding:0 24px"
+                        onclick="sendNotice()">
+                    <span class="btn-text">📤 Send notice</span>
+                    <div class="btn-spinner"></div>
+                </button>
+            </div>
+        </div>
+
         <!-- Recent payments -->
         <div class="card">
             <div class="card-header">
@@ -124,13 +162,13 @@
 <script src="/js/api.js"></script>
 <script src="/js/auth.js"></script>
 <script src="/js/sidebar.js"></script>
+<script src="/js/notifications.js"></script>
 <script>
     requireAuth();
 
-    // Populate user info
     const user = Auth.getUser();
     if (user) {
-        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userName').textContent   = user.name;
         document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
     }
 
@@ -146,14 +184,72 @@
                 'KES ' + Number(payStats.monthlyRevenue).toLocaleString();
             document.getElementById('openMaintenance').textContent = stats.vacantUnits + ' vacant';
         } catch (err) { console.error(err); }
+
+        // Payments table
+        const tbody = document.getElementById('paymentsTable');
+        try {
+            const payments = await PaymentAPI.list();
+            if (payments.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6"
+                    style="text-align:center;color:var(--text-2);padding:32px">
+                    No payments yet
+                </td></tr>`;
+            } else {
+                const badge = {
+                    SUCCESS:'badge-success', PENDING:'badge-warning',
+                    FAILED:'badge-error',    CANCELLED:'badge-error',
+                };
+                tbody.innerHTML = payments.slice(0, 5).map(p => `
+                    <tr>
+                        <td>${p.tenantName}</td>
+                        <td>${p.unitNumber || '—'}</td>
+                        <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
+                        <td>${p.mpesaCode
+                    ? `<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${p.mpesaCode}</code>`
+                    : '—'}</td>
+                        <td>${p.createdAt ? p.createdAt.substring(0,10) : '—'}</td>
+                        <td><span class="badge ${badge[p.status]||'badge-info'}">${p.status}</span></td>
+                    </tr>
+                `).join('');
+            }
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6"
+                style="text-align:center;color:var(--text-2);padding:32px">
+                No payments yet
+            </td></tr>`;
+        }
     }
 
+    async function sendNotice() {
+        const btn     = document.getElementById('sendNoticeBtn');
+        const alert   = document.getElementById('noticeAlert');
+        const title   = document.getElementById('noticeTitle').value.trim();
+        const message = document.getElementById('noticeMessage').value.trim();
+        const target  = document.getElementById('noticeTarget').value;
 
-        // Payments table — will be replaced with real data once payments module is built
-        const tbody = document.getElementById('paymentsTable');
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-2);padding:32px">
-            No payments yet
-        </td></tr>`;
+        if (!title || !message) {
+            alert.textContent = 'Title and message are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        btn.classList.add('loading'); btn.disabled = true;
+        alert.className = 'alert';
+
+        try {
+            const result = await NotificationAPI.sendNotice({
+                title, message, target
+            });
+            alert.textContent = '✅ ' + result.message;
+            alert.className   = 'alert alert-success show';
+            document.getElementById('noticeTitle').value   = '';
+            document.getElementById('noticeMessage').value = '';
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
     }
 
     loadDashboard();

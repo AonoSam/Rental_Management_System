@@ -1,5 +1,6 @@
 package com.rental.rental_system.tenant;
 
+import com.rental.rental_system.notification.NotificationService;
 import com.rental.rental_system.property.*;
 import com.rental.rental_system.tenant.dto.*;
 import com.rental.rental_system.user.*;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.rental.rental_system.payment.PaymentRepository;
 import com.rental.rental_system.payment.PaymentStatus;
+import com.rental.rental_system.maintenance.MaintenanceRepository ;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,7 +24,8 @@ public class TenantService {
     private final UnitRepository       unitRepository;
     private final PasswordEncoder      passwordEncoder;
     private final PaymentRepository paymentRepository;
-    private final com.rental.rental_system.maintenance.MaintenanceRepository maintenanceRepository;
+    private final NotificationService notificationService;
+    private final MaintenanceRepository maintenanceRepository;
 
     // ── Get all tenants ──────────────────────────────────
     public List<TenantResponse> getAllTenants() {
@@ -83,6 +86,8 @@ public class TenantService {
                 .status(TenantStatus.ACTIVE)
                 .build();
         tenantRepository.save(tenant);
+
+        notificationService.welcomeTenant(user);
 
         // Mark unit as occupied
         unit.setStatus(UnitStatus.OCCUPIED);

@@ -130,3 +130,18 @@ const SessionAPI = {
     unblock:     (id) => apiFetch(`/sessions/unblock/${id}`,
         { method: 'PUT' }),
 };
+// Notifications
+const NotificationAPI = {
+    list:        ()      => apiFetch('/notifications'),
+    unreadCount: ()      => apiFetch('/notifications/unread-count'),
+    markRead:    (id)    => apiFetch(`/notifications/${id}/read`,
+        { method: 'PUT' }),
+    markAllRead: ()      => apiFetch('/notifications/mark-all-read',
+        { method: 'PUT' }),
+    delete:      (id)    => apiFetch(`/notifications/${id}`,
+        { method: 'DELETE' }),
+    deleteAll:   ()      => apiFetch('/notifications/delete-all',
+        { method: 'DELETE' }),
+    sendNotice:  (body)  => apiFetch('/notifications/send-notice',
+        { method: 'POST', body: JSON.stringify(body) }),
+};
