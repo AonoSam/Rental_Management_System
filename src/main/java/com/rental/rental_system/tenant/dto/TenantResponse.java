@@ -27,4 +27,7 @@ public class TenantResponse {
     private LocalDate leaseEnd;
     private String status;
     private LocalDateTime createdAt;
+    // Arrears
+    private java.math.BigDecimal arrearsBalance;
+    private java.math.BigDecimal creditBalance;
 }

@@ -115,25 +115,82 @@ public class ReportController {
     // ── Outstanding balances ─────────────────────────────
     @GetMapping("/outstanding")
     public ResponseEntity<List<Map<String, Object>>> getOutstanding() {
+
         String thisMonth = YearMonth.now().toString();
+
         List<Map<String, Object>> result = new ArrayList<>();
 
         tenantRepository.findByStatus(TenantStatus.ACTIVE).forEach(t -> {
-            boolean paid = paymentRepository.existsByTenantIdAndPaymentMonthAndStatus(
-                    t.getId(), thisMonth, PaymentStatus.SUCCESS);
+
+            boolean paid = paymentRepository
+                    .existsByTenantIdAndPaymentMonthAndStatus(
+                            t.getId(),
+                            thisMonth,
+                            PaymentStatus.SUCCESS
+                    );
 
             if (!paid) {
+
+                BigDecimal rentAmount = BigDecimal.ZERO;
+
+                if (t.getUnit() != null && t.getUnit().getRentAmount() != null) {
+                    rentAmount = t.getUnit().getRentAmount();
+                }
+
+                BigDecimal arrears = t.getArrearsBalance() != null
+                        ? t.getArrearsBalance()
+                        : BigDecimal.ZERO;
+
+                BigDecimal credit = t.getCreditBalance() != null
+                        ? t.getCreditBalance()
+                        : BigDecimal.ZERO;
+
+                BigDecimal totalDue = rentAmount
+                        .add(arrears)
+                        .subtract(credit);
+
+                // Prevent negative balance
+                if (totalDue.compareTo(BigDecimal.ZERO) < 0) {
+                    totalDue = BigDecimal.ZERO;
+                }
+
                 Map<String, Object> row = new HashMap<>();
-                row.put("tenantName",   t.getUser().getName());
-                row.put("phone",        t.getUser().getPhone());
-                row.put("unitNumber",   t.getUnit() != null ? t.getUnit().getHouseNumber() : "—");
-                row.put("propertyName", t.getUnit() != null ? t.getUnit().getProperty().getName() : "—");
-                row.put("rentAmount",   t.getUnit() != null ? t.getUnit().getRentAmount() : BigDecimal.ZERO);
-                row.put("month",        thisMonth);
+
+                row.put("tenantName", t.getUser().getName());
+
+                row.put("phone",
+                        t.getUser() != null
+                                ? t.getUser().getPhone()
+                                : "—"
+                );
+
+                row.put("unitNumber",
+                        t.getUnit() != null
+                                ? t.getUnit().getHouseNumber()
+                                : "—"
+                );
+
+                row.put("propertyName",
+                        t.getUnit() != null
+                                ? t.getUnit().getProperty().getName()
+                                : "—"
+                );
+
+                row.put("rentAmount", rentAmount);
+
+                row.put("arrearsBalance", arrears);
+
+                row.put("creditBalance", credit);
+
+                row.put("totalDue", totalDue);
+
+                row.put("month", thisMonth);
+
                 result.add(row);
             }
         });
 
         return ResponseEntity.ok(result);
     }
+
 }

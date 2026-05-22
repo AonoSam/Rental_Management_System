@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.rental.rental_system.tenant.TenantRepository;
+import com.rental.rental_system.payment.ArrearsRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,54 +27,145 @@ public class PaymentService {
     private final TenantRepository tenantRepository;
     private final MpesaService mpesaService;
     private final NotificationService notificationService;
+    private final PaymentSettingsService  paymentSettingsService;
+    private final ArrearsRepository arrearsRepository;
 
-    // ── Initiate STK Push ────────────────────────────────
+
+    // ── Initiate STK Push ───────────────────────────────
+
     @Transactional
     public PaymentResponse initiatePayment(StkPushRequest req) {
         Tenant tenant = tenantRepository.findById(req.getTenantId())
                 .orElseThrow(() -> new RuntimeException("Tenant not found"));
 
-        // Normalise phone: 07XXXXXXXX → 2547XXXXXXXX
         String phone = normalisePhone(req.getPhoneNumber());
-
-        // Default payment month to current month
         String month = req.getPaymentMonth() != null
                 ? req.getPaymentMonth()
-                : YearMonth.now().toString(); // "2025-05"
+                : java.time.YearMonth.now().toString();
 
+        // ── Duplicate payment check ──────────────────────────
+        boolean alreadyPaid = paymentRepository
+                .existsByTenantIdAndPaymentMonthAndStatus(
+                        tenant.getId(), month, PaymentStatus.SUCCESS);
+        if (alreadyPaid)
+            throw new RuntimeException(
+                    "Rent for " + month + " has already been fully paid");
+
+        // ── Payment window check ─────────────────────────────
+        boolean withinWindow = paymentSettingsService.isWithinPaymentWindow();
+        boolean isLate       = !withinWindow;
+
+        if (isLate && (req.getLateReason() == null
+                || req.getLateReason().trim().isEmpty()))
+            throw new RuntimeException(
+                    "Payment window is closed. Please provide a reason.");
+
+        // ── Calculate amounts ────────────────────────────────
+        java.math.BigDecimal rentAmount = tenant.getUnit() != null
+                ? tenant.getUnit().getRentAmount()
+                : req.getAmount();
+
+        // Previous arrears
+        java.math.BigDecimal carriedArrears =
+                tenant.getArrearsBalance() != null
+                        ? tenant.getArrearsBalance()
+                        : java.math.BigDecimal.ZERO;
+
+        // Credit balance from overpayment
+        java.math.BigDecimal creditBalance =
+                tenant.getCreditBalance() != null
+                        ? tenant.getCreditBalance()
+                        : java.math.BigDecimal.ZERO;
+
+        // Total due = this month + arrears - credit
+        java.math.BigDecimal totalDue = rentAmount
+                .add(carriedArrears)
+                .subtract(creditBalance)
+                .max(java.math.BigDecimal.ZERO);
+
+        java.math.BigDecimal amountPaying = req.getAmount();
+
+        // ── Calculate result ─────────────────────────────────
+        java.math.BigDecimal balanceRemaining = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal excessAmount     = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal creditUsed       = creditBalance;
+        ArrearsStatus        arrearsStatus;
+        PaymentType          paymentType;
+
+        int cmp = amountPaying.compareTo(totalDue);
+
+        if (cmp < 0) {
+            // Underpaid — new arrears
+            balanceRemaining = totalDue.subtract(amountPaying);
+            arrearsStatus    = ArrearsStatus.PARTIAL;
+            paymentType      = isLate ? PaymentType.LATE : PaymentType.NORMAL;
+        } else if (cmp == 0) {
+            // Exact payment
+            balanceRemaining = java.math.BigDecimal.ZERO;
+            arrearsStatus    = ArrearsStatus.CLEARED;
+            paymentType      = isLate ? PaymentType.LATE : PaymentType.NORMAL;
+        } else {
+            // Overpaid — excess becomes credit
+            excessAmount     = amountPaying.subtract(totalDue);
+            balanceRemaining = java.math.BigDecimal.ZERO;
+            arrearsStatus    = ArrearsStatus.EXCESS;
+            paymentType      = PaymentType.EXCESS;
+        }
+
+        // ── Create arrears record ────────────────────────────
+        ArrearsRecord arrearsRecord = ArrearsRecord.builder()
+                .tenant(tenant)
+                .paymentMonth(month)
+                .rentAmount(rentAmount)
+                .amountPaid(amountPaying)
+                .arrearsAmount(balanceRemaining)
+                .carriedArrears(carriedArrears)
+                .totalDue(totalDue)
+                .balanceRemaining(balanceRemaining)
+                .status(arrearsStatus)
+                .build();
+        arrearsRepository.save(arrearsRecord);
+
+        // ── Update tenant balances ───────────────────────────
+        tenant.setArrearsBalance(balanceRemaining);
+        tenant.setCreditBalance(excessAmount);
+        tenantRepository.save(tenant);
+
+        // ── Create payment ───────────────────────────────────
         String accountRef = tenant.getUnit() != null
-                ? tenant.getUnit().getHouseNumber()
-                : "RENT";
+                ? tenant.getUnit().getHouseNumber() : "RENT";
 
-        // Create pending payment record first
         Payment payment = Payment.builder()
                 .tenant(tenant)
-                .amount(req.getAmount())
+                .amount(amountPaying)
+                .expectedAmount(totalDue)
+                .excessAmount(excessAmount)
+                .creditUsed(creditUsed)
                 .phoneNumber(phone)
                 .status(PaymentStatus.PENDING)
                 .paymentMonth(month)
+                .paymentType(paymentType)
+                .lateReason(isLate ? req.getLateReason() : null)
                 .build();
         paymentRepository.save(payment);
 
-        // Initiate STK Push
+        // ── STK Push ─────────────────────────────────────────
         try {
             Map<String, String> result = mpesaService.initiateStkPush(
-                    phone,
-                    req.getAmount().toPlainString(),
-                    accountRef,
-                    "Rent payment " + month
-            );
-
+                    phone, amountPaying.toPlainString(),
+                    accountRef, "Rent " + month);
             payment.setCheckoutRequestId(result.get("checkoutRequestId"));
             payment.setMerchantRequestId(result.get("merchantRequestId"));
             paymentRepository.save(payment);
-
-            log.info("STK Push sent to {} for KES {}", phone, req.getAmount());
         } catch (Exception e) {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason(e.getMessage());
             paymentRepository.save(payment);
-            throw new RuntimeException("Failed to send STK Push: " + e.getMessage());
+            // Reverse arrears update on failure
+            tenant.setArrearsBalance(carriedArrears);
+            tenant.setCreditBalance(creditBalance);
+            tenantRepository.save(tenant);
+            throw new RuntimeException("STK Push failed: " + e.getMessage());
         }
 
         return toResponse(payment);
@@ -246,9 +339,15 @@ public class PaymentService {
                 .tenantId(p.getTenant().getId())
                 .tenantName(p.getTenant().getUser().getName())
                 .amount(p.getAmount())
+                .expectedAmount(p.getExpectedAmount())
+                .excessAmount(p.getExcessAmount())
+                .creditUsed(p.getCreditUsed())
                 .mpesaCode(p.getMpesaCode())
                 .phoneNumber(p.getPhoneNumber())
                 .status(p.getStatus().name())
+                .paymentType(p.getPaymentType() != null
+                        ? p.getPaymentType().name() : null)
+                .lateReason(p.getLateReason())
                 .paymentMonth(p.getPaymentMonth())
                 .failureReason(p.getFailureReason())
                 .createdAt(p.getCreatedAt())
@@ -258,7 +357,6 @@ public class PaymentService {
             b.unitNumber(p.getTenant().getUnit().getHouseNumber())
                     .propertyName(p.getTenant().getUnit().getProperty().getName());
         }
-
         return b.build();
     }
 }

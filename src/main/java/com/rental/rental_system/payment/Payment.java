@@ -56,4 +56,20 @@ public class Payment {
 
     @PrePersist
     protected void onCreate() { createdAt = LocalDateTime.now(); }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_type")
+    private PaymentType paymentType; // NORMAL, LATE, EXCESS, CREDIT
+
+    @Column(name = "late_reason")
+    private String lateReason;
+
+    @Column(name = "expected_amount")
+    private java.math.BigDecimal expectedAmount; // what was due
+
+    @Column(name = "excess_amount")
+    private java.math.BigDecimal excessAmount;   // overpaid amount
+
+    @Column(name = "credit_used")
+    private java.math.BigDecimal creditUsed;     // credit applied from previous month
 }

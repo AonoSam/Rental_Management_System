@@ -72,6 +72,9 @@
             </a>
             <a href="/pages/admin/payments.html"    class="nav-item"><span class="nav-icon">💳</span> Payments</a>
             <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/notifications.html" class="nav-item">
+                <span class="nav-icon">🔔</span> Notifications
+            </a>
             <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
             <a href="/pages/admin/sessions.html" class="nav-item">
                 <span class="nav-icon">🖥</span> Sessions
@@ -267,32 +270,32 @@
         }
 
         grid.innerHTML = list.map(t => `
-            <div class="tenant-card">
-                <div class="tenant-avatar">${t.name[0].toUpperCase()}</div>
-                <div class="tenant-info">
-                    <div class="tenant-name">${t.name}
-                        <span class="badge ${t.status === 'ACTIVE' ? 'badge-success' : t.status === 'VACATED' ? 'badge-warning' : 'badge-error'}"
-                              style="margin-left:8px;font-size:11px">${t.status}</span>
-                    </div>
-                    <div style="font-size:13px;color:var(--text-2)">${t.email}</div>
-                    <div class="tenant-meta">
-                        <span>📱 ${t.phone || '—'}</span>
-                        <span>🏠 ${t.unitNumber ? t.propertyName + ' · ' + t.unitNumber : 'No unit'}</span>
-                        ${t.rentAmount ? `<span>💰 KES ${Number(t.rentAmount).toLocaleString()}/mo</span>` : ''}
-                        ${t.leaseEnd   ? `<span>📅 Until ${t.leaseEnd}</span>` : ''}
-                    </div>
-                </div>
-                <div class="tenant-actions">
-                    <button class="btn-icon" title="View details"
-                        data-id="${t.id}" onclick="viewTenant(this)">👁</button>
-                    <button class="btn-icon" title="Edit"
-                        data-id="${t.id}" onclick="openEditModal(this)">✏️</button>
-                    ${t.status === 'ACTIVE' ? `
-                    <button class="btn-icon danger" title="Vacate"
-                        data-id="${t.id}" onclick="vacateTenant(this)">🚪</button>` : ''}
-                </div>
+    <div class="tenant-card">
+        <div class="tenant-avatar">${t.name[0].toUpperCase()}</div>
+        <div class="tenant-info">
+            <div class="tenant-name">${t.name}
+                <span class="badge ${t.status === 'ACTIVE'
+            ? 'badge-success' : 'badge-warning'}"
+                      style="margin-left:8px;font-size:11px">
+                    ${t.status}
+                </span>
+                ${t.arrearsBalance && Number(t.arrearsBalance) > 0
+            ? `<span class="badge badge-error"
+                             style="margin-left:4px;font-size:11px">
+                          ⚠️ Arrears: KES ${Number(t.arrearsBalance).toLocaleString()}
+                       </span>`
+            : ''}
+                ${t.creditBalance && Number(t.creditBalance) > 0
+            ? `<span class="badge badge-info"
+                             style="margin-left:4px;font-size:11px">
+                          💳 Credit: KES ${Number(t.creditBalance).toLocaleString()}
+                       </span>`
+            : ''}
             </div>
-        `).join('');
+            ...
+        </div>
+    </div>
+`).join('');
     }
 
     function setFilter(btn) {

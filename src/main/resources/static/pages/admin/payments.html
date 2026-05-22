@@ -47,6 +47,9 @@
             </a>
             <a href="/pages/admin/payments.html"    class="nav-item active"><span class="nav-icon">💳</span> Payments</a>
             <a href="/pages/admin/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/notifications.html" class="nav-item">
+                <span class="nav-icon">🔔</span> Notifications
+            </a>
             <a href="/pages/admin/reports.html"     class="nav-item"><span class="nav-icon">📈</span> Reports</a>
             <a href="/pages/admin/sessions.html" class="nav-item">
                 <span class="nav-icon">🖥</span> Sessions
@@ -63,6 +66,47 @@
             <div class="user-pill">
                 <div class="avatar" id="userAvatar">A</div>
                 <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <!-- Payment Window Settings -->
+        <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+                <h3>⚙️ Payment Window</h3>
+                <span id="windowStatus" class="badge">Loading...</span>
+            </div>
+            <div style="padding:20px">
+                <p style="font-size:14px;color:var(--text-2);margin-bottom:16px">
+                    Tenants can only pay rent within this window each month.
+                    Outside the window, payments are flagged as <strong>Late</strong>
+                    and require a reason.
+                </p>
+                <div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
+                    <div class="form-group" style="margin:0">
+                        <label>Start day</label>
+                        <div class="input-wrap">
+                            <span class="icon">📅</span>
+                            <input type="number" id="startDay" min="1" max="28"
+                                   placeholder="e.g. 1" style="width:120px"/>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label>End day</label>
+                        <div class="input-wrap">
+                            <span class="icon">📅</span>
+                            <input type="number" id="endDay" min="1" max="28"
+                                   placeholder="e.g. 5" style="width:120px"/>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary"
+                            style="width:auto;padding:0 20px;height:48px"
+                            onclick="saveWindowSettings()">
+                        Save window
+                    </button>
+                </div>
+                <div id="windowAlert" class="alert" style="margin-top:12px"></div>
+                <p style="font-size:13px;color:var(--text-2);margin-top:12px"
+                   id="windowHint">—</p>
             </div>
         </div>
 
@@ -221,6 +265,50 @@
     let pollTimer  = null;
     let currentCheckoutId = null;
 
+    // Load payment window
+    async function loadWindowSettings() {
+        try {
+            const w = await PaymentSettingsAPI.get();
+            document.getElementById('startDay').value = w.startDay;
+            document.getElementById('endDay').value   = w.endDay;
+
+            const badge = document.getElementById('windowStatus');
+            const hint  = document.getElementById('windowHint');
+
+            if (w.withinWindow) {
+                badge.textContent  = '🟢 Window open';
+                badge.className    = 'badge badge-success';
+                hint.textContent   = `Today is day ${w.today}. Window closes on day ${w.endDay} (${w.daysLeft} day(s) left).`;
+            } else {
+                badge.textContent  = '🔴 Window closed';
+                badge.className    = 'badge badge-error';
+                hint.textContent   = `Today is day ${w.today}. Window is day ${w.startDay}–${w.endDay}. Payments now flagged as late.`;
+            }
+        } catch (err) { console.error(err); }
+    }
+
+    async function saveWindowSettings() {
+        const alert    = document.getElementById('windowAlert');
+        const startDay = parseInt(document.getElementById('startDay').value);
+        const endDay   = parseInt(document.getElementById('endDay').value);
+
+        if (!startDay || !endDay) {
+            alert.textContent = 'Both start and end day are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        try {
+            await PaymentSettingsAPI.update({ startDay, endDay });
+            alert.textContent = `✅ Payment window set to day ${startDay}–${endDay}`;
+            alert.className   = 'alert alert-success show';
+            await loadWindowSettings();
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        }
+    }
+
     // ── Load stats ───────────────────────────────────────
     async function loadStats() {
         try {
@@ -248,26 +336,45 @@
                 return;
             }
 
-            const badge = {
-                SUCCESS:   'badge-success',
-                PENDING:   'badge-warning',
-                FAILED:    'badge-error',
-                CANCELLED: 'badge-error',
+            const typeBadge = {
+                NORMAL: 'badge-success',
+                LATE:   'badge-error',
+                EXCESS: 'badge-info',
+                CREDIT: 'badge-warning',
             };
 
             tbody.innerHTML = payments.map(p => `
-        <tr>
-          <td>${p.tenantName}</td>
-          <td>${p.unitNumber || '—'}</td>
-          <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
-          <td>${p.mpesaCode
+    <tr>
+        <td>
+            ${p.tenantName}
+            ${p.lateReason
+                ? `<div style="font-size:11px;color:var(--error);margin-top:2px">
+                    ⚠️ Late: ${p.lateReason}
+                   </div>`
+                : ''}
+        </td>
+        <td>${p.unitNumber || '—'}</td>
+        <td>KES ${p.expectedAmount
+                ? Number(p.expectedAmount).toLocaleString() : '—'}</td>
+        <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
+        <td>${p.creditUsed && Number(p.creditUsed) > 0
+                ? `<span style="color:var(--success)">-KES ${Number(p.creditUsed).toLocaleString()}</span>`
+                : '—'}</td>
+        <td>${p.excessAmount && Number(p.excessAmount) > 0
+                ? `<span style="color:var(--primary)">+KES ${Number(p.excessAmount).toLocaleString()}</span>`
+                : '—'}</td>
+        <td>${p.paymentType
+                ? `<span class="badge ${typeBadge[p.paymentType]||'badge-info'}">
+                ${p.paymentType}
+               </span>`
+                : '—'}</td>
+        <td>${p.mpesaCode
                 ? `<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${p.mpesaCode}</code>`
                 : '—'}</td>
-          <td>${p.paymentMonth || '—'}</td>
-          <td>${p.createdAt ? p.createdAt.substring(0,10) : '—'}</td>
-          <td><span class="badge ${badge[p.status] || 'badge-info'}">${p.status}</span></td>
-        </tr>
-      `).join('');
+        <td>${p.paymentMonth || '—'}</td>
+        <td><span class="badge ${badge[p.status]||'badge-info'}">${p.status}</span></td>
+    </tr>
+`).join('');
         } catch (err) { console.error(err); }
     }
 

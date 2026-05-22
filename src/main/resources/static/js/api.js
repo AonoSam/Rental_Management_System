@@ -73,6 +73,8 @@ const TenantAPI = {
     vacate:   (id)    => apiFetch(`/tenants/${id}/vacate`, { method: 'PUT' }),
     stats:    ()      => apiFetch('/tenants/stats'),
     vacantUnits: ()   => apiFetch('/units/vacant'),
+    myArrears:    ()   => apiFetch('/tenants/my-arrears'),
+    arrears:      (id) => apiFetch(`/tenants/${id}/arrears`),
 };
 
 // Payment endpoints
@@ -144,4 +146,9 @@ const NotificationAPI = {
         { method: 'DELETE' }),
     sendNotice:  (body)  => apiFetch('/notifications/send-notice',
         { method: 'POST', body: JSON.stringify(body) }),
+};
+const PaymentSettingsAPI = {
+    get:    ()     => apiFetch('/payment-settings'),
+    update: (body) => apiFetch('/payment-settings',
+        { method: 'PUT', body: JSON.stringify(body) }),
 };

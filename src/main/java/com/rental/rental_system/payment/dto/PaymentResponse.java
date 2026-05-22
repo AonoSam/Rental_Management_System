@@ -19,4 +19,9 @@ public class PaymentResponse {
     private String failureReason;
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
+    private String paymentType;
+    private String lateReason;
+    private java.math.BigDecimal expectedAmount;
+    private java.math.BigDecimal excessAmount;
+    private java.math.BigDecimal creditUsed;
 }

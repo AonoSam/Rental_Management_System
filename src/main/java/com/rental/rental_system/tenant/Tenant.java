@@ -52,4 +52,12 @@ public class Tenant {
 
     @PrePersist
     protected void onCreate() { createdAt = LocalDateTime.now(); }
+
+    @Column(name = "credit_balance", precision = 10, scale = 2)
+    private java.math.BigDecimal creditBalance =
+            java.math.BigDecimal.ZERO;
+
+    @Column(name = "arrears_balance", precision = 10, scale = 2)
+    private java.math.BigDecimal arrearsBalance =
+            java.math.BigDecimal.ZERO;
 }

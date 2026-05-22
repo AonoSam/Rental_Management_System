@@ -35,6 +35,9 @@
             <a href="/pages/tenant/pay-rent.html"    class="nav-item active"><span class="nav-icon">💳</span> Pay Rent</a>
             <a href="/pages/tenant/payments.html"    class="nav-item"><span class="nav-icon">📋</span> Payment History</a>
             <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/notifications.html" class="nav-item">
+                <span class="nav-icon">🔔</span> Notifications
+            </a>
             <a href="/pages/tenant/profile.html"     class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
         </nav>
         <div class="sidebar-footer">
@@ -59,6 +62,18 @@
                 <div class="amount-display">
                     <div class="label">Monthly rent amount</div>
                     <div class="value" id="rentDisplay">Loading...</div>
+                </div>
+                <!-- Window status banner -->
+                <div id="windowBanner"></div>
+
+                <!-- Late reason — shown only outside payment window -->
+                <div class="form-group" id="lateReasonGroup" style="display:none">
+                    <label>Reason for late payment <span style="color:var(--error)">*</span></label>
+                    <div class="input-wrap">
+                        <span class="icon">📝</span>
+                        <input type="text" id="lateReason"
+                               placeholder="e.g. Was travelling, medical emergency..."/>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Amount (KES)</label>
@@ -144,32 +159,123 @@
 
     async function loadProfile() {
         try {
-            const data = await TenantSelfAPI.dashboard();
+            const [data, arrears, window] = await Promise.all([
+                TenantSelfAPI.dashboard(),
+                TenantAPI.myArrears(),
+                PaymentSettingsAPI.get(),
+            ]);
             tenantProfile = data.tenant;
 
-            const rent = tenantProfile.rentAmount;
+            const rent   = Number(arrears.rentAmount);
+            const arr    = Number(arrears.arrears);
+            const credit = Number(arrears.creditBalance);
+            const total  = Number(arrears.totalDue);
+
+            // Update rent display
             document.getElementById('rentDisplay').textContent =
-                rent ? 'KES ' + Number(rent).toLocaleString() : 'Not set';
-            if (rent) document.getElementById('payAmount').value = rent;
+                'KES ' + rent.toLocaleString();
+
+            // Set amount to pay
+            document.getElementById('payAmount').value = total > 0 ? total : rent;
             if (tenantProfile.phone)
                 document.getElementById('payPhone').value = tenantProfile.phone;
             document.getElementById('payMonth').value =
-                new Date().toISOString().substring(0,7);
+                new Date().toISOString().substring(0, 7);
 
+            // Build breakdown banner
+            let breakdownHtml = `
+            <div style="background:var(--bg);border:1px solid var(--border);
+                        border-radius:10px;padding:14px 16px;margin-bottom:16px;
+                        font-size:13px">
+                <div style="font-weight:600;margin-bottom:10px">
+                    💰 Payment breakdown
+                </div>
+                <div style="display:flex;justify-content:space-between;
+                            padding:6px 0;border-bottom:1px solid var(--border)">
+                    <span style="color:var(--text-2)">This month's rent</span>
+                    <span>KES ${rent.toLocaleString()}</span>
+                </div>`;
+
+            if (arr > 0) {
+                breakdownHtml += `
+                <div style="display:flex;justify-content:space-between;
+                            padding:6px 0;border-bottom:1px solid var(--border)">
+                    <span style="color:var(--error)">⚠️ Previous arrears</span>
+                    <span style="color:var(--error);font-weight:600">
+                        + KES ${arr.toLocaleString()}
+                    </span>
+                </div>`;
+            }
+
+            if (credit > 0) {
+                breakdownHtml += `
+                <div style="display:flex;justify-content:space-between;
+                            padding:6px 0;border-bottom:1px solid var(--border)">
+                    <span style="color:var(--success)">💳 Credit balance</span>
+                    <span style="color:var(--success);font-weight:600">
+                        - KES ${credit.toLocaleString()}
+                    </span>
+                </div>`;
+            }
+
+            breakdownHtml += `
+                <div style="display:flex;justify-content:space-between;
+                            padding:8px 0;font-weight:700;font-size:15px">
+                    <span>Total due</span>
+                    <span style="color:var(--primary)">
+                        KES ${total.toLocaleString()}
+                    </span>
+                </div>
+            </div>`;
+
+            document.getElementById('windowBanner').innerHTML = breakdownHtml;
+
+            // Payment window status
+            const lateGroup = document.getElementById('lateReasonGroup');
+            const windowDiv = document.createElement('div');
+
+            if (window.withinWindow) {
+                windowDiv.innerHTML = `
+                <div style="background:#F0FDF4;border:1px solid #BBF7D0;
+                            border-radius:10px;padding:12px 16px;
+                            font-size:13px;color:#16A34A;margin-bottom:16px">
+                    ✅ Payment window open — Day ${window.startDay} to ${window.endDay}.
+                    ${window.daysLeft} day(s) remaining.
+                </div>`;
+                lateGroup.style.display = 'none';
+            } else {
+                windowDiv.innerHTML = `
+                <div style="background:#FEF2F2;border:1px solid #FECACA;
+                            border-radius:10px;padding:12px 16px;
+                            font-size:13px;color:#DC2626;margin-bottom:16px">
+                    ⚠️ Payment window closed (Day ${window.startDay}–${window.endDay}).
+                    This payment will be flagged as <strong>Late</strong>.
+                </div>`;
+                lateGroup.style.display = 'block';
+            }
+
+            document.getElementById('windowBanner')
+                .appendChild(windowDiv.firstElementChild);
+
+            // Already paid?
             if (data.paidThisMonth) {
                 document.getElementById('payAlert').textContent =
-                    '✅ You have already paid rent for this month.';
-                document.getElementById('payAlert').className = 'alert alert-success show';
+                    '✅ Rent fully paid for this month.';
+                document.getElementById('payAlert').className =
+                    'alert alert-success show';
+                document.getElementById('payBtn').disabled = true;
             }
+
         } catch (err) { console.error(err); }
     }
 
     async function sendPayment() {
-        const btn    = document.getElementById('payBtn');
-        const alert  = document.getElementById('payAlert');
-        const amount = document.getElementById('payAmount').value;
-        const phone  = document.getElementById('payPhone').value.trim();
-        const month  = document.getElementById('payMonth').value;
+        const btn      = document.getElementById('payBtn');
+        const alert    = document.getElementById('payAlert');
+        const amount   = document.getElementById('payAmount').value;
+        const phone    = document.getElementById('payPhone').value.trim();
+        const month    = document.getElementById('payMonth').value;
+        const lateReason = document.getElementById('lateReason')?.value?.trim();
 
         if (!amount || !phone) {
             alert.textContent = 'Amount and phone number are required';
@@ -186,6 +292,7 @@
                 amount:       parseFloat(amount),
                 phoneNumber:  phone,
                 paymentMonth: month,
+                lateReason:   lateReason || null,
             });
 
             currentCheckoutId = result.checkoutRequestId;

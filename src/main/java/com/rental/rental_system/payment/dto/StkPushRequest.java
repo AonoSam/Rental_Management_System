@@ -11,4 +11,5 @@ public class StkPushRequest {
     @NotNull  private BigDecimal amount;
     @NotBlank private String phoneNumber; // format: 2547XXXXXXXX
     private String paymentMonth;          // e.g. "2025-05", defaults to current month
+    private String lateReason; // required only if paying late
 }

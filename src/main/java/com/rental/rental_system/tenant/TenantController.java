@@ -78,4 +78,18 @@ public class TenantController {
     public ResponseEntity<Map<String, Object>> getCaretakerOverview() {
         return ResponseEntity.ok(tenantService.getCaretakerOverview());
     }
+    // Get arrears summary for a tenant
+    @GetMapping("/{id}/arrears")
+    public ResponseEntity<List<Map<String, Object>>> getTenantArrears(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(tenantService.getTenantArrears(id));
+    }
+
+    // Get my arrears (tenant self)
+    @GetMapping("/my-arrears")
+    public ResponseEntity<Map<String, Object>> getMyArrears(
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(
+                tenantService.getMyArrears(currentUser.getId()));
+    }
 }

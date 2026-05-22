@@ -1,6 +1,7 @@
 package com.rental.rental_system.tenant;
 
 import com.rental.rental_system.notification.NotificationService;
+import com.rental.rental_system.payment.ArrearsRepository;
 import com.rental.rental_system.property.*;
 import com.rental.rental_system.tenant.dto.*;
 import com.rental.rental_system.user.*;
@@ -14,6 +15,7 @@ import com.rental.rental_system.maintenance.MaintenanceRepository ;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class TenantService {
     private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
     private final MaintenanceRepository maintenanceRepository;
+    private final ArrearsRepository arrearsRepository;
 
     // ── Get all tenants ──────────────────────────────────
     public List<TenantResponse> getAllTenants() {
@@ -187,7 +190,19 @@ public class TenantService {
                 .leaseStart(t.getLeaseStart())
                 .leaseEnd(t.getLeaseEnd())
                 .status(t.getStatus().name())
-                .createdAt(t.getCreatedAt());
+                .createdAt(t.getCreatedAt())
+
+                // ── ADD THESE ───────────────────────────────
+                .arrearsBalance(
+                        t.getArrearsBalance() != null
+                                ? t.getArrearsBalance()
+                                : java.math.BigDecimal.ZERO
+                )
+                .creditBalance(
+                        t.getCreditBalance() != null
+                                ? t.getCreditBalance()
+                                : java.math.BigDecimal.ZERO
+                );
 
         if (t.getUnit() != null) {
             builder
@@ -251,6 +266,56 @@ public class TenantService {
                 "vacantUnits",       vacantUnits,
                 "activeTenants",     activeTenants,
                 "pendingMaintenance",pendingMaintenance
+        );
+    }
+
+
+    public List<Map<String, Object>> getTenantArrears(Long tenantId) {
+        return arrearsRepository
+                .findByTenantIdOrderByPaymentMonthDesc(tenantId)
+                .stream()
+                .map(a -> {
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("month",            a.getPaymentMonth());
+                    m.put("rentAmount",       a.getRentAmount());
+                    m.put("carriedArrears",   a.getCarriedArrears());
+                    m.put("totalDue",         a.getTotalDue());
+                    m.put("amountPaid",       a.getAmountPaid());
+                    m.put("balanceRemaining", a.getBalanceRemaining());
+                    m.put("status",           a.getStatus().name());
+                    return m;
+                })
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public Map<String, Object> getMyArrears(Long userId) {
+        Tenant tenant = tenantRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Tenant not found"));
+
+        java.math.BigDecimal rentAmount = tenant.getUnit() != null
+                ? tenant.getUnit().getRentAmount()
+                : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal arrears = tenant.getArrearsBalance() != null
+                ? tenant.getArrearsBalance()
+                : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal credit = tenant.getCreditBalance() != null
+                ? tenant.getCreditBalance()
+                : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal totalDue = rentAmount
+                .add(arrears)
+                .subtract(credit)
+                .max(java.math.BigDecimal.ZERO);
+
+        return Map.of(
+                "rentAmount",    rentAmount,
+                "arrears",       arrears,
+                "creditBalance", credit,
+                "totalDue",      totalDue,
+                "hasArrears",    arrears.compareTo(java.math.BigDecimal.ZERO) > 0,
+                "hasCredit",     credit.compareTo(java.math.BigDecimal.ZERO) > 0
         );
     }
 }
