@@ -7,53 +7,41 @@
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .fin-grid  { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:14px; margin-bottom:28px; }
+        .fin-card  { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+        .fin-label { font-size:11px; color:var(--text-2); font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+        .fin-value { font-size:22px; font-weight:700; line-height:1.2; }
+        .fin-sub   { font-size:12px; color:var(--text-2); margin-top:4px; }
+        .c-green  { color:#16A34A; }
+        .c-red    { color:#DC2626; }
+        .c-blue   { color:#1D6AE5; }
+        .c-amber  { color:#D97706; }
+        select    { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        textarea  { width:100%; padding:12px 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; font-family:inherit; resize:vertical; outline:none; min-height:90px; }
+    </style>
 </head>
 <body>
 <div class="app-shell">
-
-    <!-- Sidebar -->
     <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="icon">🏢</div>
-            <span>RentEase</span>
-        </div>
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
         <nav class="sidebar-nav">
-            <a href="/pages/admin/dashboard.html"    class="nav-item active">
-                <span class="nav-icon">📊</span> Dashboard
-            </a>
-            <a href="/pages/admin/properties.html"   class="nav-item">
-                <span class="nav-icon">🏠</span> Properties
-            </a>
-            <a href="/pages/admin/tenants.html"      class="nav-item">
-                <span class="nav-icon">👥</span> Tenants
-            </a>
-            <a href="/pages/admin/caretaker.html" class="nav-item">
-                <span class="nav-icon">🔑</span> Caretakers
-            </a>
-            <a href="/pages/admin/payments.html"     class="nav-item">
-                <span class="nav-icon">💳</span> Payments
-            </a>
-            <a href="/pages/admin/maintenance.html"  class="nav-item">
-                <span class="nav-icon">🔧</span> Maintenance
-            </a>
-            <a href="/pages/admin/notifications.html" class="nav-item">
-                <span class="nav-icon">🔔</span> Notifications
-            </a>
-            <a href="/pages/admin/reports.html"      class="nav-item">
-                <span class="nav-icon">📈</span> Reports
-            </a>
-            <a href="/pages/admin/sessions.html" class="nav-item">
-                <span class="nav-icon">🖥</span> Sessions
-            </a>
+            <a href="/pages/admin/dashboard.html"     class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"    class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"       class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/caretaker.html"     class="nav-item"><span class="nav-icon">🔑</span> Caretakers</a>
+            <a href="/pages/admin/payments.html"      class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html"   class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/repair-logs.html"   class="nav-item"><span class="nav-icon">🛠</span> Repair Logs</a>
+            <a href="/pages/admin/reports.html"       class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            <a href="/pages/admin/sessions.html"      class="nav-item"><span class="nav-icon">🖥</span> Sessions</a>
+            <a href="/pages/admin/notifications.html" class="nav-item"><span class="nav-icon">🔔</span> Notifications</a>
         </nav>
         <div class="sidebar-footer">
-            <a href="#" class="nav-item" onclick="logout()">
-                <span class="nav-icon">🚪</span> Logout
-            </a>
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
         </div>
     </aside>
 
-    <!-- Main -->
     <main class="main-content">
         <div class="topbar">
             <h1>Dashboard</h1>
@@ -63,8 +51,8 @@
             </div>
         </div>
 
-        <!-- Stats -->
-        <div class="stat-grid">
+        <!-- Property stats -->
+        <div class="stat-grid" style="margin-bottom:20px">
             <div class="stat-card">
                 <div class="stat-icon blue">🏠</div>
                 <div>
@@ -76,34 +64,69 @@
                 <div class="stat-icon green">👥</div>
                 <div>
                     <div class="stat-label">Active tenants</div>
-                    <div class="stat-value" id="totalTenants">—</div>
+                    <div class="stat-value" id="activeTenants">—</div>
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon amber">💰</div>
+                <div class="stat-icon amber">🔓</div>
                 <div>
-                    <div class="stat-label">This month (KES)</div>
-                    <div class="stat-value" id="monthlyRevenue">—</div>
+                    <div class="stat-label">Vacant units</div>
+                    <div class="stat-value" id="vacantUnits">—</div>
                 </div>
             </div>
             <div class="stat-card">
                 <div class="stat-icon purple">🔧</div>
                 <div>
-                    <div class="stat-label">Open maintenance</div>
-                    <div class="stat-value" id="openMaintenance">—</div>
+                    <div class="stat-label">Pending maintenance</div>
+                    <div class="stat-value" id="pendingMaintenance">—</div>
                 </div>
             </div>
         </div>
 
-        <!-- Send Notice Card -->
-        <div class="card" style="margin-bottom:24px">
-            <div class="card-header">
-                <h3>📢 Send Notice</h3>
+        <!-- Financial overview -->
+        <h3 style="font-size:14px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px">
+            💰 Financial overview
+        </h3>
+        <div class="fin-grid">
+            <div class="fin-card">
+                <div class="fin-label">This month collections</div>
+                <div class="fin-value c-green" id="monthlyCollections">—</div>
+                <div class="fin-sub">rent received this month</div>
             </div>
+            <div class="fin-card">
+                <div class="fin-label">Annual collections</div>
+                <div class="fin-value c-green" id="annualCollections">—</div>
+                <div class="fin-sub">total this year</div>
+            </div>
+            <div class="fin-card">
+                <div class="fin-label">Total maintenance fees</div>
+                <div class="fin-value c-red" id="totalExpenses">—</div>
+                <div class="fin-sub">all repair expenses</div>
+            </div>
+            <div class="fin-card">
+                <div class="fin-label">This month expenses</div>
+                <div class="fin-value c-amber" id="monthlyExpenses">—</div>
+                <div class="fin-sub">repairs this month</div>
+            </div>
+            <div class="fin-card">
+                <div class="fin-label">Total unpaid arrears</div>
+                <div class="fin-value c-red" id="totalArrears">—</div>
+                <div class="fin-sub">owed by tenants</div>
+            </div>
+            <div class="fin-card">
+                <div class="fin-label">Net overall collections</div>
+                <div class="fin-value c-blue" id="netCollections">—</div>
+                <div class="fin-sub">total collected − expenses</div>
+            </div>
+        </div>
+
+        <!-- Send Notice -->
+        <div class="card" style="margin-bottom:24px">
+            <div class="card-header"><h3>📢 Send Notice</h3></div>
             <div style="padding:20px">
                 <div class="form-group">
                     <label>Send to</label>
-                    <select id="noticeTarget" style="width:100%;height:48px;padding:0 16px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;background:var(--surface);outline:none">
+                    <select id="noticeTarget">
                         <option value="ALL">Everyone (Tenants + Caretakers)</option>
                         <option value="TENANTS">Tenants only</option>
                         <option value="CARETAKERS">Caretakers only</option>
@@ -113,20 +136,16 @@
                     <label>Title</label>
                     <div class="input-wrap">
                         <span class="icon">📢</span>
-                        <input type="text" id="noticeTitle"
-                               placeholder="e.g. Water Outage Notice"/>
+                        <input type="text" id="noticeTitle" placeholder="e.g. Water Outage Notice"/>
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Message</label>
-                    <textarea id="noticeMessage"
-                              placeholder="Type your message here..."
-                              style="width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;font-family:inherit;resize:vertical;outline:none;min-height:90px"></textarea>
+                    <textarea id="noticeMessage" placeholder="Type your message here..."></textarea>
                 </div>
                 <div id="noticeAlert" class="alert"></div>
                 <button class="btn btn-primary" id="sendNoticeBtn"
-                        style="width:auto;padding:0 24px"
-                        onclick="sendNotice()">
+                        style="width:auto;padding:0 24px" onclick="sendNotice()">
                     <span class="btn-text">📤 Send notice</span>
                     <div class="btn-spinner"></div>
                 </button>
@@ -137,7 +156,8 @@
         <div class="card">
             <div class="card-header">
                 <h3>Recent payments</h3>
-                <button class="btn-sm" onclick="window.location='/pages/admin/payments.html'">
+                <button class="btn-sm"
+                        onclick="window.location='/pages/admin/payments.html'">
                     View all
                 </button>
             </div>
@@ -146,14 +166,17 @@
                 <tr>
                     <th>Tenant</th>
                     <th>Unit</th>
-                    <th>Amount (KES)</th>
-                    <th>M-Pesa code</th>
+                    <th>Expected</th>
+                    <th>Paid</th>
+                    <th>Type</th>
+                    <th>M-Pesa</th>
                     <th>Date</th>
                     <th>Status</th>
                 </tr>
                 </thead>
                 <tbody id="paymentsTable">
-                <tr><td colspan="6" style="text-align:center;color:var(--text-2);padding:32px">
+                <tr><td colspan="8"
+                        style="text-align:center;color:var(--text-2);padding:32px">
                     Loading...
                 </td></tr>
                 </tbody>
@@ -175,81 +198,155 @@
         document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
     }
 
+    const fmt = n => 'KES ' + Number(n || 0).toLocaleString();
+
     async function loadDashboard() {
         try {
-            const [stats, payStats] = await Promise.all([
+            const [stats, expenses, maint] = await Promise.all([
                 apiFetch('/dashboard/stats'),
-                apiFetch('/payments/stats'),
+                RepairAPI.expenseSummary(),
+                MaintenanceAPI.stats(),
             ]);
-            document.getElementById('totalProperties').textContent = stats.totalProperties;
-            document.getElementById('totalTenants').textContent    = stats.activeTenants;
-            document.getElementById('monthlyRevenue').textContent  =
-                'KES ' + Number(payStats.monthlyRevenue).toLocaleString();
-            document.getElementById('openMaintenance').textContent = stats.vacantUnits + ' vacant';
+
+            document.getElementById('totalProperties').textContent   = stats.totalProperties;
+            document.getElementById('activeTenants').textContent     = stats.activeTenants;
+            document.getElementById('vacantUnits').textContent       = stats.vacantUnits;
+            document.getElementById('pendingMaintenance').textContent= maint.pending;
+
+            const monthly   = Number(stats.monthlyCollections || 0);
+            const annual    = Number(stats.annualCollections  || 0);
+            const totalColl = Number(stats.totalCollections   || 0);
+            const totalExp  = Number(expenses.totalExpenses   || 0);
+            const monthExp  = Number(expenses.monthlyExpenses || 0);
+            const arrears   = Number(stats.totalArrears       || 0);
+            const netTotal  = totalColl - totalExp;
+
+            document.getElementById('monthlyCollections').textContent = fmt(monthly);
+            document.getElementById('annualCollections').textContent  = fmt(annual);
+            document.getElementById('totalExpenses').textContent      = fmt(totalExp);
+            document.getElementById('monthlyExpenses').textContent    = fmt(monthExp);
+            document.getElementById('totalArrears').textContent       = fmt(arrears);
+            document.getElementById('netCollections').textContent     = fmt(netTotal);
+            document.getElementById('netCollections').className =
+                'fin-value ' + (netTotal >= 0 ? 'c-green' : 'c-red');
+
         } catch (err) { console.error(err); }
 
-        // Payments table
+        // Recent payments table
         const tbody = document.getElementById('paymentsTable');
         try {
             const payments = await PaymentAPI.list();
-            if (payments.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6"
-                    style="text-align:center;color:var(--text-2);padding:32px">
-                    No payments yet
-                </td></tr>`;
-            } else {
-                const badge = {
-                    SUCCESS:'badge-success', PENDING:'badge-warning',
-                    FAILED:'badge-error',    CANCELLED:'badge-error',
-                };
-                tbody.innerHTML = payments.slice(0, 5).map(p => `
-                    <tr>
-                        <td>${p.tenantName}</td>
-                        <td>${p.unitNumber || '—'}</td>
-                        <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
-                        <td>${p.mpesaCode
-                    ? `<code style="background:var(--bg);padding:2px 6px;border-radius:4px">${p.mpesaCode}</code>`
-                    : '—'}</td>
-                        <td>${p.createdAt ? p.createdAt.substring(0,10) : '—'}</td>
-                        <td><span class="badge ${badge[p.status]||'badge-info'}">${p.status}</span></td>
-                    </tr>
-                `).join('');
+
+            if (!payments || payments.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8"
+          style="text-align:center;color:var(--text-2);padding:32px">
+          No payments yet
+        </td></tr>`;
+                return;
             }
+
+            // Updated badge map — matches new PaymentStatus enum
+            const statusBadge = {
+                PAID:      'badge-success',
+                PARTIAL:   'badge-warning',
+                PENDING:   'badge-info',
+                FAILED:    'badge-error',
+                CANCELLED: 'badge-error',
+                OVERDUE:   'badge-error',
+            };
+
+            const typeBadge = {
+                NORMAL: 'badge-success',
+                LATE:   'badge-error',
+                EXCESS: 'badge-info',
+                CREDIT: 'badge-warning',
+            };
+
+            tbody.innerHTML = payments.slice(0, 5).map(p => `
+        <tr>
+          <td>
+            <strong>${p.tenantName}</strong>
+            ${p.lateReason
+                ? `<div style="font-size:11px;color:var(--error);margin-top:2px">
+                  ⚠️ Late: ${p.lateReason}
+                 </div>`
+                : ''}
+          </td>
+          <td>${p.unitNumber || '—'}</td>
+          <td style="color:var(--text-2)">
+            ${p.expectedAmount
+                ? fmt(p.expectedAmount)
+                : '—'}
+          </td>
+          <td><strong>${fmt(p.amount)}</strong>
+            ${p.excessAmount && Number(p.excessAmount) > 0
+                ? `<div style="font-size:11px;color:var(--success)">
+                  +${fmt(p.excessAmount)} credit
+                 </div>`
+                : ''}
+            ${p.creditUsed && Number(p.creditUsed) > 0
+                ? `<div style="font-size:11px;color:var(--primary)">
+                  -${fmt(p.creditUsed)} credit used
+                 </div>`
+                : ''}
+          </td>
+          <td>
+            ${p.paymentType
+                ? `<span class="badge ${typeBadge[p.paymentType] || 'badge-info'}">
+                  ${p.paymentType}
+                 </span>`
+                : '—'}
+          </td>
+          <td>
+            ${p.mpesaCode
+                ? `<code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:12px">
+                  ${p.mpesaCode}
+                 </code>`
+                : '—'}
+          </td>
+          <td>${p.createdAt ? p.createdAt.substring(0, 10) : '—'}</td>
+          <td>
+            <span class="badge ${statusBadge[p.status] || 'badge-info'}">
+              ${p.status}
+            </span>
+          </td>
+        </tr>
+      `).join('');
+
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="6"
-                style="text-align:center;color:var(--text-2);padding:32px">
-                No payments yet
-            </td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8"
+        style="text-align:center;color:var(--text-2);padding:32px">
+        No payments yet
+      </td></tr>`;
         }
     }
 
     async function sendNotice() {
         const btn     = document.getElementById('sendNoticeBtn');
-        const alert   = document.getElementById('noticeAlert');
+        const alertEl = document.getElementById('noticeAlert');
         const title   = document.getElementById('noticeTitle').value.trim();
         const message = document.getElementById('noticeMessage').value.trim();
         const target  = document.getElementById('noticeTarget').value;
 
         if (!title || !message) {
-            alert.textContent = 'Title and message are required';
-            alert.className   = 'alert alert-error show';
+            alertEl.textContent = 'Title and message are required';
+            alertEl.className   = 'alert alert-error show';
             return;
         }
 
         btn.classList.add('loading'); btn.disabled = true;
-        alert.className = 'alert';
+        alertEl.className = 'alert';
 
         try {
-            const result = await NotificationAPI.sendNotice({
-                title, message, target
-            });
-            alert.textContent = '✅ ' + result.message;
-            alert.className   = 'alert alert-success show';
+            const result = await NotificationAPI.sendNotice(
+                { title, message, target });
+            alertEl.textContent = '✅ ' + result.message;
+            alertEl.className   = 'alert alert-success show';
             document.getElementById('noticeTitle').value   = '';
             document.getElementById('noticeMessage').value = '';
         } catch (err) {
-            alert.textContent = err.message;
-            alert.className   = 'alert alert-error show';
+            alertEl.textContent = err.message;
+            alertEl.className   = 'alert alert-error show';
         } finally {
             btn.classList.remove('loading'); btn.disabled = false;
         }

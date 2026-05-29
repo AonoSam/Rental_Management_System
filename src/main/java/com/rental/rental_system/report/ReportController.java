@@ -52,7 +52,7 @@ public class ReportController {
         // Outstanding balances — tenants who haven't paid this month
         long activeTenants   = tenantRepository.countActiveTenants();
         long paidThisMonth   = paymentRepository
-                .findByPaymentMonthAndStatus(thisMonth, PaymentStatus.SUCCESS).size();
+                .findByPaymentMonthAndStatus(thisMonth, PaymentStatus.PAID).size();
         long unpaidThisMonth = activeTenants - paidThisMonth;
 
         return ResponseEntity.ok(Map.of(
@@ -126,7 +126,7 @@ public class ReportController {
                     .existsByTenantIdAndPaymentMonthAndStatus(
                             t.getId(),
                             thisMonth,
-                            PaymentStatus.SUCCESS
+                            PaymentStatus.PAID
                     );
 
             if (!paid) {

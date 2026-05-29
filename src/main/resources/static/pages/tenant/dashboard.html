@@ -11,17 +11,29 @@
         .welcome-card { background:var(--primary); border-radius:var(--radius); padding:28px; color:#fff; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center; }
         .welcome-card h2 { font-size:22px; font-weight:700; margin-bottom:4px; }
         .welcome-card p  { color:rgba(255,255,255,.8); font-size:14px; }
-        .welcome-icon    { font-size:48px; }
-        .rent-status-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px; }
-        .rent-status-card h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
-        .rent-row  { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; }
-        .rent-row:last-child { border-bottom:none; }
-        .rent-label { color:var(--text-2); }
-        .rent-value { font-weight:600; }
+
+        .payment-status-card { border-radius:var(--radius); padding:20px; margin-bottom:24px; border:1px solid var(--border); background:var(--surface); }
+        .payment-status-card h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
+        .breakdown-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; }
+        .breakdown-row:last-of-type { border-bottom:none; }
+        .breakdown-label { color:var(--text-2); }
+        .breakdown-value { font-weight:600; }
+        .status-pill { display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600; margin-top:14px; }
+        .pill-paid    { background:#F0FDF4; color:#16A34A; }
+        .pill-partial { background:#FFFBEB; color:#D97706; }
+        .pill-overdue { background:#FEF2F2; color:#DC2626; }
+        .pill-pending { background:#EFF6FF; color:#2563EB; }
+
+        .unit-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:24px; }
+        .unit-card h3 { font-size:15px; font-weight:600; margin-bottom:16px; }
+        .unit-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:14px; }
+        .unit-row:last-child { border-bottom:none; }
+        .unit-label { color:var(--text-2); }
+
         .quick-actions { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
-        .action-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; cursor:pointer; text-decoration:none; transition:all .15s; display:block; }
-        .action-card:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:var(--shadow); }
-        .action-icon { font-size:32px; margin-bottom:8px; }
+        .action-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; text-decoration:none; display:block; transition:all .15s; }
+        .action-card:hover { border-color:var(--primary); transform:translateY(-2px); }
+        .action-icon  { font-size:32px; margin-bottom:8px; }
         .action-label { font-size:13px; font-weight:600; color:var(--text-1); }
     </style>
 </head>
@@ -30,14 +42,12 @@
     <aside class="sidebar">
         <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
         <nav class="sidebar-nav">
-            <a href="/pages/tenant/dashboard.html"   class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
-            <a href="/pages/tenant/pay-rent.html"    class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
-            <a href="/pages/tenant/payments.html"    class="nav-item"><span class="nav-icon">📋</span> Payment History</a>
-            <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
-            <a href="/pages/tenant/notifications.html" class="nav-item">
-                <span class="nav-icon">🔔</span> Notifications
-            </a>
-            <a href="/pages/tenant/profile.html"     class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
+            <a href="/pages/tenant/dashboard.html"     class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/tenant/pay-rent.html"      class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
+            <a href="/pages/tenant/payments.html"      class="nav-item"><span class="nav-icon">📋</span> Payment History</a>
+            <a href="/pages/tenant/maintenance.html"   class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/notifications.html" class="nav-item"><span class="nav-icon">🔔</span> Notifications</a>
+            <a href="/pages/tenant/profile.html"       class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
         </nav>
         <div class="sidebar-footer">
             <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
@@ -58,9 +68,10 @@
                 <h2 id="welcomeName">Welcome back!</h2>
                 <p id="welcomeUnit">Loading your details...</p>
             </div>
-            <div class="welcome-icon">🏠</div>
+            <div style="font-size:48px">🏠</div>
         </div>
 
+        <!-- Quick stats -->
         <div class="stat-grid" style="margin-bottom:24px">
             <div class="stat-card">
                 <div class="stat-icon amber">💰</div>
@@ -70,10 +81,17 @@
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon green">✅</div>
+                <div class="stat-icon red">⚠️</div>
                 <div>
-                    <div class="stat-label">This month</div>
-                    <div class="stat-value" id="thisMonthStatus">—</div>
+                    <div class="stat-label">Arrears balance</div>
+                    <div class="stat-value" id="arrearsBalance">—</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">💳</div>
+                <div>
+                    <div class="stat-label">Credit balance</div>
+                    <div class="stat-value" id="creditBalance">—</div>
                 </div>
             </div>
             <div class="stat-card">
@@ -83,39 +101,73 @@
                     <div class="stat-value" id="totalPayments">—</div>
                 </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon purple">💵</div>
-                <div>
-                    <div class="stat-label">Total paid (KES)</div>
-                    <div class="stat-value" id="totalPaid">—</div>
-                </div>
+        </div>
+
+        <!-- Payment status this month -->
+        <div class="payment-status-card">
+            <h3>💰 This month — <span id="currentMonth">—</span></h3>
+
+            <div class="breakdown-row">
+                <span class="breakdown-label">Monthly rent</span>
+                <span class="breakdown-value" id="rentAmount">—</span>
+            </div>
+
+            <div class="breakdown-row" id="arrearsRow" style="display:none">
+                <span class="breakdown-label" style="color:var(--error)">⚠️ Previous arrears</span>
+                <span class="breakdown-value" style="color:var(--error)" id="prevArrears">—</span>
+            </div>
+
+            <div class="breakdown-row" id="creditRow" style="display:none">
+                <span class="breakdown-label" style="color:var(--success)">💳 Credit balance</span>
+                <span class="breakdown-value" style="color:var(--success)" id="creditAmt">—</span>
+            </div>
+
+            <div class="breakdown-row" id="paidRow" style="display:none">
+                <span class="breakdown-label" style="color:var(--success)">✅ Paid this month</span>
+                <span class="breakdown-value" style="color:var(--success)" id="paidAmt">—</span>
+            </div>
+
+            <div class="breakdown-row">
+                <span class="breakdown-label" style="font-weight:700">Balance due</span>
+                <span class="breakdown-value" style="color:var(--primary);font-size:18px"
+                      id="balanceDue">—</span>
+            </div>
+
+            <div id="statusPill"></div>
+
+            <a href="/pages/tenant/pay-rent.html" id="payNowBtn"
+               style="display:none;margin-top:16px"
+               class="btn btn-primary">
+                📲 Pay now
+            </a>
+        </div>
+
+        <!-- Unit details -->
+        <div class="unit-card">
+            <h3>🏠 My unit</h3>
+            <div class="unit-row">
+                <span class="unit-label">Property</span>
+                <span id="detailProperty">—</span>
+            </div>
+            <div class="unit-row">
+                <span class="unit-label">Unit number</span>
+                <span id="detailUnit">—</span>
+            </div>
+            <div class="unit-row">
+                <span class="unit-label">Category</span>
+                <span id="detailCategory">—</span>
+            </div>
+            <div class="unit-row">
+                <span class="unit-label">Monthly rent</span>
+                <span id="detailRent">—</span>
+            </div>
+            <div class="unit-row">
+                <span class="unit-label">Lease started</span>
+                <span id="detailLeaseStart">—</span>
             </div>
         </div>
 
-        <div class="rent-status-card">
-            <h3>🏠 My unit details</h3>
-            <div class="rent-row">
-                <span class="rent-label">Property</span>
-                <span class="rent-value" id="detailProperty">—</span>
-            </div>
-            <div class="rent-row">
-                <span class="rent-label">Unit number</span>
-                <span class="rent-value" id="detailUnit">—</span>
-            </div>
-            <div class="rent-row">
-                <span class="rent-label">Category</span>
-                <span class="rent-value" id="detailCategory">—</span>
-            </div>
-            <div class="rent-row">
-                <span class="rent-label">Monthly rent</span>
-                <span class="rent-value" id="detailRent">—</span>
-            </div>
-            <div class="rent-row">
-                <span class="rent-label">Lease started</span>
-                <span class="rent-value" id="detailLeaseStart">—</span>
-            </div>
-        </div>
-
+        <!-- Quick actions -->
         <h3 style="font-size:15px;font-weight:600;margin-bottom:12px">Quick actions</h3>
         <div class="quick-actions">
             <a href="/pages/tenant/pay-rent.html" class="action-card">
@@ -151,31 +203,101 @@
         document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
     }
 
+    const fmt = n => 'KES ' + Number(n || 0).toLocaleString();
+
     async function loadDashboard() {
         try {
-            const data = await TenantSelfAPI.dashboard();
-            const t    = data.tenant;
+            const [data, arrears] = await Promise.all([
+                TenantSelfAPI.dashboard(),
+                TenantAPI.myArrears(),
+            ]);
 
+            const t = data.tenant;
+
+            // Welcome card
             document.getElementById('welcomeName').textContent =
                 'Welcome back, ' + t.name.split(' ')[0] + '!';
             document.getElementById('welcomeUnit').textContent =
-                t.unitNumber ? `${t.propertyName} · Unit ${t.unitNumber}` : 'No unit assigned yet';
+                t.unitNumber
+                    ? `${t.propertyName} · Unit ${t.unitNumber}`
+                    : 'No unit assigned yet';
 
+            // Quick stats
             document.getElementById('monthlyRent').textContent =
-                t.rentAmount ? 'KES ' + Number(t.rentAmount).toLocaleString() : '—';
-            document.getElementById('thisMonthStatus').textContent =
-                data.paidThisMonth ? '✅ Paid' : '⚠️ Unpaid';
-            document.getElementById('totalPayments').textContent = data.totalPayments;
-            document.getElementById('totalPaid').textContent =
-                'KES ' + Number(data.totalPaid).toLocaleString();
+                t.rentAmount ? fmt(t.rentAmount) : '—';
+            document.getElementById('arrearsBalance').textContent =
+                fmt(t.arrearsBalance || 0);
+            document.getElementById('creditBalance').textContent =
+                fmt(t.creditBalance || 0);
+            document.getElementById('totalPayments').textContent =
+                data.totalPayments || 0;
 
+            // Unit details
             document.getElementById('detailProperty').textContent  = t.propertyName || '—';
             document.getElementById('detailUnit').textContent      = t.unitNumber    || '—';
             document.getElementById('detailCategory').textContent  =
-                t.category ? t.category.replace(/_/g,' ') : '—';
-            document.getElementById('detailRent').textContent      =
-                t.rentAmount ? 'KES ' + Number(t.rentAmount).toLocaleString() : '—';
-            document.getElementById('detailLeaseStart').textContent = t.leaseStart   || '—';
+                t.category ? t.category.replace(/_/g, ' ') : '—';
+            document.getElementById('detailRent').textContent =
+                t.rentAmount ? fmt(t.rentAmount) : '—';
+            document.getElementById('detailLeaseStart').textContent =
+                t.leaseStart || '—';
+
+            // ── Payment breakdown ──────────────────────────────
+            const rent        = Number(arrears.rentAmount         || 0);
+            const prevArr     = Number(arrears.previousArrears    || 0);
+            const paidMonth   = Number(arrears.amountPaidThisMonth|| 0);
+            const credit      = Number(arrears.creditBalance      || 0);
+            const totalDue    = Number(arrears.totalDue           || 0);
+            const status      = arrears.paymentStatus || 'PENDING';
+            const fullyPaid   = arrears.fullyPaid;
+            const currentMonth= arrears.currentMonth  || '';
+
+            document.getElementById('currentMonth').textContent = currentMonth;
+            document.getElementById('rentAmount').textContent   = fmt(rent);
+            document.getElementById('balanceDue').textContent   = fmt(totalDue);
+
+            // Show arrears row if any
+            if (prevArr > 0) {
+                document.getElementById('arrearsRow').style.display = 'flex';
+                document.getElementById('prevArrears').textContent  =
+                    '+ ' + fmt(prevArr);
+            }
+
+            // Show credit row if any
+            if (credit > 0) {
+                document.getElementById('creditRow').style.display = 'flex';
+                document.getElementById('creditAmt').textContent   =
+                    '- ' + fmt(credit);
+            }
+
+            // Show paid row if partial payment made
+            if (paidMonth > 0) {
+                document.getElementById('paidRow').style.display = 'flex';
+                document.getElementById('paidAmt').textContent   = fmt(paidMonth);
+            }
+
+            // Status pill
+            const statusConfig = {
+                PAID:    { cls:'pill-paid',    label:'✅ Rent fully paid for this month' },
+                CLEARED: { cls:'pill-paid',    label:'✅ Rent fully paid for this month' },
+                EXCESS:  { cls:'pill-paid',    label:'✅ Overpaid — credit saved for next month' },
+                PARTIAL: { cls:'pill-partial', label:'⚠️ Partially paid — balance remaining' },
+                OVERDUE: { cls:'pill-overdue', label:'🔴 Rent overdue — please pay immediately' },
+                PENDING: { cls:'pill-pending', label:'🔵 Not yet paid this month' },
+            };
+
+            const sc = statusConfig[status] || statusConfig.PENDING;
+            document.getElementById('statusPill').innerHTML =
+                `<div class="status-pill ${sc.cls}">${sc.label}</div>`;
+
+            // Show pay button if not fully paid
+            if (!fullyPaid && totalDue > 0) {
+                const payBtn = document.getElementById('payNowBtn');
+                payBtn.style.display = 'inline-flex';
+                payBtn.textContent   = status === 'PARTIAL'
+                    ? `📲 Pay balance — ${fmt(totalDue)}`
+                    : `📲 Pay rent — ${fmt(totalDue)}`;
+            }
 
         } catch (err) {
             console.error('Dashboard load error:', err);

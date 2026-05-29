@@ -35,105 +35,122 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse initiatePayment(StkPushRequest req) {
+
         Tenant tenant = tenantRepository.findById(req.getTenantId())
                 .orElseThrow(() -> new RuntimeException("Tenant not found"));
 
         String phone = normalisePhone(req.getPhoneNumber());
+
         String month = req.getPaymentMonth() != null
                 ? req.getPaymentMonth()
                 : java.time.YearMonth.now().toString();
 
-        // ── Duplicate payment check ──────────────────────────
-        boolean alreadyPaid = paymentRepository
-                .existsByTenantIdAndPaymentMonthAndStatus(
-                        tenant.getId(), month, PaymentStatus.SUCCESS);
-        if (alreadyPaid)
-            throw new RuntimeException(
-                    "Rent for " + month + " has already been fully paid");
-
         // ── Payment window check ─────────────────────────────
         boolean withinWindow = paymentSettingsService.isWithinPaymentWindow();
-        boolean isLate       = !withinWindow;
+        boolean isLate = !withinWindow;
 
         if (isLate && (req.getLateReason() == null
-                || req.getLateReason().trim().isEmpty()))
+                || req.getLateReason().trim().isEmpty())) {
+
             throw new RuntimeException(
                     "Payment window is closed. Please provide a reason.");
+        }
 
         // ── Calculate amounts ────────────────────────────────
         java.math.BigDecimal rentAmount = tenant.getUnit() != null
                 ? tenant.getUnit().getRentAmount()
                 : req.getAmount();
 
-        // Previous arrears
-        java.math.BigDecimal carriedArrears =
-                tenant.getArrearsBalance() != null
-                        ? tenant.getArrearsBalance()
-                        : java.math.BigDecimal.ZERO;
+        String currentMonth = java.time.YearMonth.now().toString();
+        String payingMonth = month;
 
-        // Credit balance from overpayment
-        java.math.BigDecimal creditBalance =
-                tenant.getCreditBalance() != null
-                        ? tenant.getCreditBalance()
-                        : java.math.BigDecimal.ZERO;
+        // Get carried arrears — only from same/past months
+        java.math.BigDecimal carriedArrears = java.math.BigDecimal.ZERO;
 
-        // Total due = this month + arrears - credit
+        // Check existing arrears record for this month
+        java.util.Optional<ArrearsRecord> existingRecord =
+                arrearsRepository.findByTenantIdAndPaymentMonth(
+                        tenant.getId(), payingMonth);
+
+        if (existingRecord.isPresent()) {
+
+            // Tenant topping up remaining balance
+            carriedArrears = existingRecord.get().getBalanceRemaining();
+
+            // Only remaining balance should be paid
+            rentAmount = carriedArrears;
+
+        } else {
+
+            // Only add previous arrears
+            carriedArrears = tenant.getArrearsBalance() != null
+                    ? tenant.getArrearsBalance()
+                    : java.math.BigDecimal.ZERO;
+        }
+
+        // Credit balance
+        java.math.BigDecimal creditBalance = tenant.getCreditBalance() != null
+                ? tenant.getCreditBalance()
+                : java.math.BigDecimal.ZERO;
+
+        // Total due
         java.math.BigDecimal totalDue = rentAmount
-                .add(carriedArrears)
+                .add(existingRecord.isPresent()
+                        ? java.math.BigDecimal.ZERO
+                        : carriedArrears)
                 .subtract(creditBalance)
                 .max(java.math.BigDecimal.ZERO);
 
         java.math.BigDecimal amountPaying = req.getAmount();
 
-        // ── Calculate result ─────────────────────────────────
+        // ── Determine payment result ─────────────────────────
         java.math.BigDecimal balanceRemaining = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal excessAmount     = java.math.BigDecimal.ZERO;
-        java.math.BigDecimal creditUsed       = creditBalance;
-        ArrearsStatus        arrearsStatus;
-        PaymentType          paymentType;
+        java.math.BigDecimal excessAmount = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal creditUsed = creditBalance;
+
+        ArrearsStatus arrearsStatus;
+        PaymentType paymentType;
 
         int cmp = amountPaying.compareTo(totalDue);
 
         if (cmp < 0) {
-            // Underpaid — new arrears
+
+            // Partial payment
             balanceRemaining = totalDue.subtract(amountPaying);
-            arrearsStatus    = ArrearsStatus.PARTIAL;
-            paymentType      = isLate ? PaymentType.LATE : PaymentType.NORMAL;
+
+            arrearsStatus = ArrearsStatus.PARTIAL;
+
+            paymentType = isLate
+                    ? PaymentType.LATE
+                    : PaymentType.NORMAL;
+
         } else if (cmp == 0) {
-            // Exact payment
+
+            // Fully paid
             balanceRemaining = java.math.BigDecimal.ZERO;
-            arrearsStatus    = ArrearsStatus.CLEARED;
-            paymentType      = isLate ? PaymentType.LATE : PaymentType.NORMAL;
+
+            arrearsStatus = ArrearsStatus.CLEARED;
+
+            paymentType = isLate
+                    ? PaymentType.LATE
+                    : PaymentType.NORMAL;
+
         } else {
-            // Overpaid — excess becomes credit
-            excessAmount     = amountPaying.subtract(totalDue);
+
+            // Overpayment
+            excessAmount = amountPaying.subtract(totalDue);
+
             balanceRemaining = java.math.BigDecimal.ZERO;
-            arrearsStatus    = ArrearsStatus.EXCESS;
-            paymentType      = PaymentType.EXCESS;
+
+            arrearsStatus = ArrearsStatus.EXCESS;
+
+            paymentType = PaymentType.EXCESS;
         }
 
-        // ── Create arrears record ────────────────────────────
-        ArrearsRecord arrearsRecord = ArrearsRecord.builder()
-                .tenant(tenant)
-                .paymentMonth(month)
-                .rentAmount(rentAmount)
-                .amountPaid(amountPaying)
-                .arrearsAmount(balanceRemaining)
-                .carriedArrears(carriedArrears)
-                .totalDue(totalDue)
-                .balanceRemaining(balanceRemaining)
-                .status(arrearsStatus)
-                .build();
-        arrearsRepository.save(arrearsRecord);
-
-        // ── Update tenant balances ───────────────────────────
-        tenant.setArrearsBalance(balanceRemaining);
-        tenant.setCreditBalance(excessAmount);
-        tenantRepository.save(tenant);
-
-        // ── Create payment ───────────────────────────────────
+        // ── Create payment FIRST (pending) ───────────────────
         String accountRef = tenant.getUnit() != null
-                ? tenant.getUnit().getHouseNumber() : "RENT";
+                ? tenant.getUnit().getHouseNumber()
+                : "RENT";
 
         Payment payment = Payment.builder()
                 .tenant(tenant)
@@ -147,30 +164,43 @@ public class PaymentService {
                 .paymentType(paymentType)
                 .lateReason(isLate ? req.getLateReason() : null)
                 .build();
+
         paymentRepository.save(payment);
 
         // ── STK Push ─────────────────────────────────────────
         try {
+
             Map<String, String> result = mpesaService.initiateStkPush(
-                    phone, amountPaying.toPlainString(),
-                    accountRef, "Rent " + month);
+                    phone,
+                    amountPaying.toPlainString(),
+                    accountRef,
+                    "Rent " + month
+            );
+
             payment.setCheckoutRequestId(result.get("checkoutRequestId"));
             payment.setMerchantRequestId(result.get("merchantRequestId"));
+
             paymentRepository.save(payment);
+
         } catch (Exception e) {
+
             payment.setStatus(PaymentStatus.FAILED);
             payment.setFailureReason(e.getMessage());
+
             paymentRepository.save(payment);
-            // Reverse arrears update on failure
-            tenant.setArrearsBalance(carriedArrears);
-            tenant.setCreditBalance(creditBalance);
-            tenantRepository.save(tenant);
+
             throw new RuntimeException("STK Push failed: " + e.getMessage());
         }
+
+        // ── IMPORTANT ────────────────────────────────────────
+        // DO NOT update tenant balances here
+        // DO NOT create arrears records here
+        // ONLY do that after successful M-PESA callback
 
         return toResponse(payment);
     }
 
+    // ── Handle M-Pesa callback ───────────────────────────
     // ── Handle M-Pesa callback ───────────────────────────
     @Transactional
     public void handleCallback(Map<String, Object> callbackData) {
@@ -179,37 +209,50 @@ public class PaymentService {
 
             log.info("M-Pesa callback received: {}", callbackData);
 
-            // Navigate callback JSON
             @SuppressWarnings("unchecked")
-            Map<String, Object> body = (Map<String, Object>)
-                    ((Map<String, Object>) callbackData.get("Body"))
-                            .get("stkCallback");
+            Map<String, Object> stkCallback =
+                    (Map<String, Object>)
+                            ((Map<String, Object>) callbackData.get("Body"))
+                                    .get("stkCallback");
 
             String checkoutRequestId =
-                    (String) body.get("CheckoutRequestID");
+                    (String) stkCallback.get("CheckoutRequestID");
 
             int resultCode =
-                    ((Number) body.get("ResultCode")).intValue();
+                    ((Number) stkCallback.get("ResultCode")).intValue();
+
+            String resultDesc =
+                    (String) stkCallback.get("ResultDesc");
 
             Payment payment = paymentRepository
                     .findByCheckoutRequestId(checkoutRequestId)
                     .orElse(null);
 
             if (payment == null) {
-
-                log.warn("No payment found for checkoutRequestId: {}",
+                log.warn("Payment not found for checkoutRequestId={}",
                         checkoutRequestId);
-
                 return;
             }
 
-            // SUCCESS
+            Tenant tenant = payment.getTenant();
+
+            // Prevent double processing
+            if (payment.getStatus() == PaymentStatus.PAID
+                    || payment.getStatus() == PaymentStatus.PARTIAL
+                    || payment.getStatus() == PaymentStatus.CANCELLED
+                    || payment.getStatus() == PaymentStatus.FAILED) {
+
+                log.info("Payment already processed: {}", payment.getId());
+                return;
+            }
+
+            // ───────────────── SUCCESS ─────────────────
             if (resultCode == 0) {
 
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> items =
                         (List<Map<String, Object>>)
-                                ((Map<String, Object>) body.get("CallbackMetadata"))
+                                ((Map<String, Object>) stkCallback.get("CallbackMetadata"))
                                         .get("Item");
 
                 String mpesaCode = null;
@@ -217,53 +260,161 @@ public class PaymentService {
                 for (Map<String, Object> item : items) {
 
                     if ("MpesaReceiptNumber".equals(item.get("Name"))) {
-                        mpesaCode = (String) item.get("Value");
+
+                        mpesaCode = String.valueOf(item.get("Value"));
                     }
                 }
 
-                payment.setStatus(PaymentStatus.SUCCESS);
+                BigDecimal amountPaid =
+                        payment.getAmount() != null
+                                ? payment.getAmount()
+                                : BigDecimal.ZERO;
+
+                BigDecimal totalDue =
+                        payment.getExpectedAmount() != null
+                                ? payment.getExpectedAmount()
+                                : amountPaid;
+
+                BigDecimal balanceRemaining =
+                        totalDue.subtract(amountPaid);
+
+                if (balanceRemaining.compareTo(BigDecimal.ZERO) < 0) {
+
+                    balanceRemaining = BigDecimal.ZERO;
+                }
+
+                // ── Payment status ─────────────────────
+                if (balanceRemaining.compareTo(BigDecimal.ZERO) == 0) {
+
+                    payment.setStatus(PaymentStatus.PAID);
+
+                } else {
+
+                    payment.setStatus(PaymentStatus.PARTIAL);
+                }
+
                 payment.setMpesaCode(mpesaCode);
                 payment.setPaidAt(LocalDateTime.now());
 
-                // Send success notification
+                // ── Existing arrears record ───────────
+                ArrearsRecord arrearsRecord =
+                        arrearsRepository
+                                .findByTenantIdAndPaymentMonth(
+                                        tenant.getId(),
+                                        payment.getPaymentMonth())
+                                .orElse(null);
+
+                if (arrearsRecord == null) {
+
+                    arrearsRecord = ArrearsRecord.builder()
+                            .tenant(tenant)
+                            .paymentMonth(payment.getPaymentMonth())
+                            .rentAmount(
+                                    tenant.getUnit() != null
+                                            ? tenant.getUnit().getRentAmount()
+                                            : amountPaid)
+                            .carriedArrears(
+                                    tenant.getArrearsBalance() != null
+                                            ? tenant.getArrearsBalance()
+                                            : BigDecimal.ZERO)
+                            .totalDue(totalDue)
+                            .amountPaid(amountPaid)
+                            .balanceRemaining(balanceRemaining)
+                            .arrearsAmount(balanceRemaining)
+                            .status(
+                                    balanceRemaining.compareTo(BigDecimal.ZERO) == 0
+                                            ? ArrearsStatus.CLEARED
+                                            : ArrearsStatus.PARTIAL)
+                            .build();
+
+                } else {
+
+                    BigDecimal newAmountPaid =
+                            arrearsRecord.getAmountPaid()
+                                    .add(amountPaid);
+
+                    BigDecimal newBalance =
+                            arrearsRecord.getTotalDue()
+                                    .subtract(newAmountPaid);
+
+                    if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+
+                        newBalance = BigDecimal.ZERO;
+                    }
+
+                    arrearsRecord.setAmountPaid(newAmountPaid);
+                    arrearsRecord.setBalanceRemaining(newBalance);
+                    arrearsRecord.setArrearsAmount(newBalance);
+
+                    arrearsRecord.setStatus(
+                            newBalance.compareTo(BigDecimal.ZERO) == 0
+                                    ? ArrearsStatus.CLEARED
+                                    : ArrearsStatus.PARTIAL);
+
+                    balanceRemaining = newBalance;
+                }
+
+                arrearsRepository.save(arrearsRecord);
+
+                // ── Update tenant balances ────────────
+                tenant.setArrearsBalance(balanceRemaining);
+
+                // Only clear credit when fully paid
+                if (balanceRemaining.compareTo(BigDecimal.ZERO) == 0) {
+
+                    tenant.setCreditBalance(BigDecimal.ZERO);
+                }
+
+                tenantRepository.save(tenant);
+
                 notificationService.paymentReceived(
-                        payment.getTenant().getUser(),
-                        payment.getAmount().toPlainString(),
+                        tenant.getUser(),
+                        amountPaid.toPlainString(),
                         mpesaCode,
-                        payment.getPaymentMonth()
-                );
+                        payment.getPaymentMonth());
 
-                log.info("Payment SUCCESS — M-Pesa code: {}", mpesaCode);
+                log.info("Payment successful: {}", payment.getId());
+            }
 
-            } else {
+            // ───────────────── CANCELLED ─────────────
+            else if (resultCode == 1032) {
 
-                // FAILED OR CANCELLED
-                String reason = (String) body.get("ResultDesc");
+                payment.setStatus(PaymentStatus.CANCELLED);
 
-                payment.setStatus(
-                        resultCode == 1032
-                                ? PaymentStatus.CANCELLED
-                                : PaymentStatus.FAILED
-                );
+                payment.setFailureReason(
+                        "Transaction cancelled by tenant");
 
-                payment.setFailureReason(reason);
-
-                // Send failed notification
                 notificationService.paymentFailed(
-                        payment.getTenant().getUser(),
+                        tenant.getUser(),
                         payment.getAmount().toPlainString(),
-                        reason
-                );
+                        "Transaction cancelled");
 
-                log.info("Payment FAILED — reason: {}", reason);
+                log.info("Payment cancelled: {}", payment.getId());
+            }
+
+            // ───────────────── FAILED ────────────────
+            else {
+
+                payment.setStatus(PaymentStatus.FAILED);
+
+                payment.setFailureReason(resultDesc);
+
+                notificationService.paymentFailed(
+                        tenant.getUser(),
+                        payment.getAmount().toPlainString(),
+                        resultDesc);
+
+                log.info("Payment failed: {}", resultDesc);
             }
 
             paymentRepository.save(payment);
 
         } catch (Exception e) {
 
-            log.error("Error processing M-Pesa callback: {}",
-                    e.getMessage(), e);
+            log.error("Callback processing error", e);
+
+            throw new RuntimeException(
+                    "Failed to process callback: " + e.getMessage());
         }
     }
 
@@ -272,7 +423,11 @@ public class PaymentService {
 
         Payment payment = paymentRepository
                 .findByCheckoutRequestId(checkoutRequestId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+                .orElse(null);
+
+        if (payment == null) {
+            return null;
+        }
 
         return toResponse(payment);
     }

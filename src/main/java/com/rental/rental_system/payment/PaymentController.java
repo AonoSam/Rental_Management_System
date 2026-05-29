@@ -30,6 +30,7 @@ public class PaymentController {
     @PostMapping("/mpesa/callback")
     public ResponseEntity<String> callback(@RequestBody Map<String, Object> body) {
         paymentService.handleCallback(body);
+
         return ResponseEntity.ok("OK");
     }
 

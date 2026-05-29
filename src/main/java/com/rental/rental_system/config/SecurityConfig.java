@@ -53,7 +53,8 @@ public class SecurityConfig {
                         new AntPathRequestMatcher("/css/**"),
                         new AntPathRequestMatcher("/js/**"),
                         new AntPathRequestMatcher("/pages/**"),
-                        new AntPathRequestMatcher("/favicon.ico")
+                        new AntPathRequestMatcher("/favicon.ico"),
+                        new AntPathRequestMatcher("/api/payments/mpesa/callback")
                 );
     }
 
@@ -68,6 +69,8 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/payments/mpesa/callback"
+
+
                         ).permitAll()
                         // Everything else — JWT required
                         .anyRequest().authenticated()

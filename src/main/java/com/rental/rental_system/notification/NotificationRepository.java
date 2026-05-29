@@ -13,6 +13,7 @@ public interface NotificationRepository
     long countByUserIdAndRead(Long userId, boolean read);
 
     @Modifying
-    @Query("UPDATE Notification n SET n.read = true WHERE n.user.id = :userId")
+    @Query("UPDATE Notification n SET n.read = true " +
+            "WHERE n.user.id = :userId")
     void markAllAsRead(Long userId);
 }

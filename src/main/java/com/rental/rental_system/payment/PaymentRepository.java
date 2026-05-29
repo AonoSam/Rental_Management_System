@@ -16,17 +16,26 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByCheckoutRequestId(String checkoutRequestId);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
-            "WHERE p.status = 'SUCCESS' AND p.paymentMonth = :month")
+            "WHERE p.status = 'PAID' AND p.paymentMonth = :month")
     BigDecimal sumSuccessfulPaymentsByMonth(String month);
 
-    @Query("SELECT COUNT(p) FROM Payment p WHERE p.status = 'SUCCESS'")
+    @Query("SELECT COUNT(p) FROM Payment p WHERE p.status = 'PAID'")
     long countSuccessfulPayments();
 
     @Query("SELECT COUNT(p) FROM Payment p WHERE p.tenant.id = :tenantId AND p.status = :status")
     long countByTenantIdAndStatus(Long tenantId, PaymentStatus status);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.tenant.id = :tenantId AND p.status = 'SUCCESS'")
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.tenant.id = :tenantId AND p.status = 'PAID'")
     java.math.BigDecimal sumSuccessfulPaymentsByTenantId(Long tenantId);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
+            "WHERE p.status = 'PAID' " +
+            "AND FUNCTION('YEAR', p.createdAt) = :year")
+    BigDecimal sumSuccessfulPaymentsByYear(int year);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
+            "WHERE p.status = 'PAID'")
+    BigDecimal sumAllSuccessfulPayments();
 
     boolean existsByTenantIdAndPaymentMonthAndStatus(Long tenantId, String paymentMonth, PaymentStatus status);
 

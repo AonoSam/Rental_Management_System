@@ -1,13 +1,17 @@
 package com.rental.rental_system.property;
 
+import com.rental.rental_system.payment.ArrearsRepository;
 import com.rental.rental_system.property.dto.*;
+import com.rental.rental_system.repair.RepairRepository;
 import com.rental.rental_system.tenant.TenantRepository;
 import com.rental.rental_system.user.User;
 import com.rental.rental_system.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -17,6 +21,10 @@ public class PropertyService {
     private final PropertyRepository propertyRepository;
     private final UnitRepository unitRepository;
     private final UserRepository userRepository;
+    private final RepairRepository repairRepository;
+    private final TenantRepository tenantRepository;
+    private final ArrearsRepository arrearsRepository;
+    private final com.rental.rental_system.payment.PaymentRepository paymentRepository;
 
     // ── Properties ─────────────────────────────────────
 
@@ -123,25 +131,88 @@ public class PropertyService {
 
     // ── Dashboard stats ─────────────────────────────────
 
-    // Add to PropertyService fields
-    private final TenantRepository tenantRepository;
+    // Get dashboard stats
 
-    // Update getDashboardStats()
-    public java.util.Map<String, Object> getDashboardStats() {
+    public Map<String, Object> getDashboardStats() {
+        String thisMonth = java.time.YearMonth.now().toString();
+        int    thisYear  = java.time.Year.now().getValue();
+
+        // Collections
+        BigDecimal monthlyCollections = paymentRepository
+                .sumSuccessfulPaymentsByMonth(thisMonth);
+
+        BigDecimal annualCollections  = paymentRepository
+                .sumSuccessfulPaymentsByYear(thisYear);
+
+        BigDecimal totalCollections   = paymentRepository
+                .sumAllSuccessfulPayments();
+
+        // Prevent null values
+        monthlyCollections = monthlyCollections != null
+                ? monthlyCollections : BigDecimal.ZERO;
+
+        annualCollections = annualCollections != null
+                ? annualCollections : BigDecimal.ZERO;
+
+        totalCollections = totalCollections != null
+                ? totalCollections : BigDecimal.ZERO;
+
+        // Expenses
+        BigDecimal totalExpenses   = repairRepository.getTotalExpenses();
+        BigDecimal monthlyExpenses = repairRepository.getExpensesByMonth(thisMonth);
+
+        totalExpenses = totalExpenses != null
+                ? totalExpenses : BigDecimal.ZERO;
+
+        monthlyExpenses = monthlyExpenses != null
+                ? monthlyExpenses : BigDecimal.ZERO;
+
+        // Arrears
+        BigDecimal totalArrears = tenantRepository.findAll()
+                .stream()
+                .map(t -> t.getArrearsBalance() != null
+                        ? t.getArrearsBalance() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Net collections = total collected - total expenses
+        BigDecimal netCollections = totalCollections.subtract(totalExpenses);
+
+        // Format to 2 decimal places
+        monthlyCollections = monthlyCollections.setScale(2, java.math.RoundingMode.HALF_UP);
+        annualCollections  = annualCollections.setScale(2, java.math.RoundingMode.HALF_UP);
+        totalCollections   = totalCollections.setScale(2, java.math.RoundingMode.HALF_UP);
+
+        totalExpenses      = totalExpenses.setScale(2, java.math.RoundingMode.HALF_UP);
+        monthlyExpenses    = monthlyExpenses.setScale(2, java.math.RoundingMode.HALF_UP);
+
+        totalArrears       = totalArrears.setScale(2, java.math.RoundingMode.HALF_UP);
+
+        netCollections     = netCollections.setScale(2, java.math.RoundingMode.HALF_UP);
+
         long totalProperties = propertyRepository.count();
         long totalUnits      = unitRepository.count();
-        long vacantUnits     = unitRepository.findAll().stream()
-                .filter(u -> u.getStatus() == UnitStatus.VACANT).count();
-        long occupiedUnits   = unitRepository.findAll().stream()
-                .filter(u -> u.getStatus() == UnitStatus.OCCUPIED).count();
-        long activeTenants   = tenantRepository.countActiveTenants();
 
-        return java.util.Map.of(
-                "totalProperties", totalProperties,
-                "totalUnits",      totalUnits,
-                "vacantUnits",     vacantUnits,
-                "occupiedUnits",   occupiedUnits,
-                "activeTenants",   activeTenants
+        long occupiedUnits = unitRepository.findAll().stream()
+                .filter(u -> u.getStatus() == UnitStatus.OCCUPIED)
+                .count();
+
+        long vacantUnits   = totalUnits - occupiedUnits;
+
+        long activeTenants = tenantRepository.countActiveTenants();
+
+        return Map.ofEntries(
+                Map.entry("totalProperties",    totalProperties),
+                Map.entry("totalUnits",         totalUnits),
+                Map.entry("occupiedUnits",      occupiedUnits),
+                Map.entry("vacantUnits",        vacantUnits),
+                Map.entry("activeTenants",      activeTenants),
+                Map.entry("monthlyCollections", monthlyCollections),
+                Map.entry("annualCollections",  annualCollections),
+                Map.entry("totalCollections",   totalCollections),
+                Map.entry("totalExpenses",      totalExpenses),
+                Map.entry("monthlyExpenses",    monthlyExpenses),
+                Map.entry("totalArrears",       totalArrears),
+                Map.entry("netCollections",     netCollections)
         );
     }
 

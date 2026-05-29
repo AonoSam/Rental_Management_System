@@ -7,20 +7,29 @@
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
     <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .summary-bar { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 20px; margin-bottom:20px; display:flex; gap:24px; flex-wrap:wrap; font-size:13px; }
+        .summary-bar span { color:var(--text-2); }
+        .summary-bar strong { color:var(--text-1); }
+        .filters { display:flex; gap:10px; margin-bottom:20px; overflow-x:auto; padding-bottom:4px; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); white-space:nowrap; }
+        .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+        .arrears-card { background:#FEF2F2; border:1px solid #FECACA; border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+        .arrears-card.no-arrears { background:#F0FDF4; border-color:#BBF7D0; }
+        .credit-card { background:#EFF6FF; border:1px solid #BFDBFE; border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; }
+    </style>
 </head>
 <body>
 <div class="app-shell">
     <aside class="sidebar">
         <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
         <nav class="sidebar-nav">
-            <a href="/pages/tenant/dashboard.html"   class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
-            <a href="/pages/tenant/pay-rent.html"    class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
-            <a href="/pages/tenant/payments.html"    class="nav-item active"><span class="nav-icon">📋</span> Payment History</a>
-            <a href="/pages/tenant/maintenance.html" class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
-            <a href="/pages/tenant/notifications.html" class="nav-item">
-                <span class="nav-icon">🔔</span> Notifications
-            </a>
-            <a href="/pages/tenant/profile.html"     class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
+            <a href="/pages/tenant/dashboard.html"     class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/tenant/pay-rent.html"      class="nav-item"><span class="nav-icon">💳</span> Pay Rent</a>
+            <a href="/pages/tenant/payments.html"      class="nav-item active"><span class="nav-icon">📋</span> Payment History</a>
+            <a href="/pages/tenant/maintenance.html"   class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/tenant/notifications.html" class="nav-item"><span class="nav-icon">🔔</span> Notifications</a>
+            <a href="/pages/tenant/profile.html"       class="nav-item"><span class="nav-icon">👤</span> My Profile</a>
         </nav>
         <div class="sidebar-footer">
             <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
@@ -36,6 +45,28 @@
             </div>
         </div>
 
+        <!-- Summary bar -->
+        <div class="summary-bar">
+            <span>Total payments: <strong id="totalCount">—</strong></span>
+            <span>Total paid: <strong id="totalPaid" style="color:var(--success)">—</strong></span>
+            <span>Arrears: <strong id="summaryArrears" style="color:var(--error)">—</strong></span>
+            <span>Credit: <strong id="summaryCredit" style="color:var(--primary)">—</strong></span>
+        </div>
+
+        <!-- Arrears / credit alert -->
+        <div id="arrearsAlert" style="display:none"></div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <button class="filter-btn active" data-filter="ALL"       onclick="setFilter(this)">All</button>
+            <button class="filter-btn"        data-filter="PAID"      onclick="setFilter(this)">✅ Paid</button>
+            <button class="filter-btn"        data-filter="PARTIAL"   onclick="setFilter(this)">⚠️ Partial</button>
+            <button class="filter-btn"        data-filter="PENDING"   onclick="setFilter(this)">🔵 Pending</button>
+            <button class="filter-btn"        data-filter="OVERDUE"   onclick="setFilter(this)">🔴 Overdue</button>
+            <button class="filter-btn"        data-filter="CANCELLED" onclick="setFilter(this)">❌ Cancelled</button>
+            <button class="filter-btn"        data-filter="FAILED"    onclick="setFilter(this)">💔 Failed</button>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <h3>All payments</h3>
@@ -44,12 +75,19 @@
             <table>
                 <thead>
                 <tr>
-                    <th>Month</th><th>Amount (KES)</th><th>M-Pesa code</th>
-                    <th>Phone</th><th>Date</th><th>Status</th>
+                    <th>Month</th>
+                    <th>Expected</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Type</th>
+                    <th>M-Pesa code</th>
+                    <th>Date</th>
+                    <th>Status</th>
                 </tr>
                 </thead>
                 <tbody id="paymentsTable">
-                <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-2)">
+                <tr><td colspan="8"
+                        style="text-align:center;padding:32px;color:var(--text-2)">
                     Loading...
                 </td></tr>
                 </tbody>
@@ -71,39 +109,169 @@
         document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
     }
 
+    const fmt = n => 'KES ' + Number(n || 0).toLocaleString();
+
+    let allPayments   = [];
+    let currentFilter = 'ALL';
+
+    const statusBadge = {
+        PAID:      'badge-success',
+        PARTIAL:   'badge-warning',
+        PENDING:   'badge-info',
+        FAILED:    'badge-error',
+        CANCELLED: 'badge-error',
+        OVERDUE:   'badge-error',
+    };
+
+    const typeBadge = {
+        NORMAL: 'badge-success',
+        LATE:   'badge-error',
+        EXCESS: 'badge-info',
+        CREDIT: 'badge-warning',
+    };
+
     async function loadPayments() {
         try {
-            const profile  = await TenantSelfAPI.profile();
-            const payments = await PaymentAPI.tenant(profile.id);
-            const tbody    = document.getElementById('paymentsTable');
+            const [profile, arrears] = await Promise.all([
+                TenantSelfAPI.profile(),
+                TenantAPI.myArrears(),
+            ]);
 
-            if (payments.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6"
-          style="text-align:center;padding:40px;color:var(--text-2)">
-          No payments yet.
-          <a href="/pages/tenant/pay-rent.html" style="color:var(--primary)">Pay your first rent</a>
-        </td></tr>`;
-                return;
+            allPayments = await PaymentAPI.tenant(profile.id);
+
+            // Summary bar
+            const totalPaid = allPayments
+                .filter(p => p.status === 'PAID' || p.status === 'PARTIAL')
+                .reduce((s, p) => s + Number(p.amount || 0), 0);
+
+            document.getElementById('totalCount').textContent  = allPayments.length;
+            document.getElementById('totalPaid').textContent   = fmt(totalPaid);
+            document.getElementById('summaryArrears').textContent =
+                fmt(arrears.previousArrears || 0);
+            document.getElementById('summaryCredit').textContent =
+                fmt(arrears.creditBalance   || 0);
+
+            // Show arrears or credit alert
+            const alertDiv = document.getElementById('arrearsAlert');
+            const arrAmt   = Number(arrears.previousArrears || 0);
+            const credAmt  = Number(arrears.creditBalance   || 0);
+
+            if (arrAmt > 0) {
+                alertDiv.style.display = 'block';
+                alertDiv.innerHTML = `
+          <div class="arrears-card">
+            <div>
+              <div style="font-weight:600;color:var(--error);margin-bottom:4px">
+                ⚠️ Outstanding arrears
+              </div>
+              <div style="font-size:13px;color:var(--text-2)">
+                You have unpaid rent from previous months.
+                This will be added to your next payment.
+              </div>
+            </div>
+            <div style="font-size:20px;font-weight:700;color:var(--error)">
+              ${fmt(arrAmt)}
+            </div>
+          </div>`;
+            } else if (credAmt > 0) {
+                alertDiv.style.display = 'block';
+                alertDiv.innerHTML = `
+          <div class="credit-card">
+            <div style="font-weight:600;color:var(--primary);margin-bottom:4px">
+              💳 Credit balance: ${fmt(credAmt)}
+            </div>
+            <div style="font-size:13px;color:var(--text-2)">
+              You overpaid last month. This credit will be
+              automatically deducted from your next payment.
+            </div>
+          </div>`;
             }
 
-            const badge = {
-                SUCCESS:'badge-success', PENDING:'badge-warning',
-                FAILED:'badge-error',    CANCELLED:'badge-error',
-            };
+            renderTable();
 
-            tbody.innerHTML = payments.map(p => `
-        <tr>
-          <td>${p.paymentMonth || '—'}</td>
-          <td><strong>KES ${Number(p.amount).toLocaleString()}</strong></td>
-          <td>${p.mpesaCode
-                ? `<code style="background:var(--bg);padding:2px 8px;border-radius:4px">${p.mpesaCode}</code>`
-                : '—'}</td>
-          <td>${p.phoneNumber || '—'}</td>
-          <td>${p.createdAt ? p.createdAt.substring(0,10) : '—'}</td>
-          <td><span class="badge ${badge[p.status]||'badge-info'}">${p.status}</span></td>
-        </tr>
-      `).join('');
         } catch (err) { console.error(err); }
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('paymentsTable');
+
+        const list = currentFilter === 'ALL'
+            ? allPayments
+            : allPayments.filter(p => p.status === currentFilter);
+
+        if (list.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8"
+        style="text-align:center;padding:40px;color:var(--text-2)">
+        No payments found.
+        <a href="/pages/tenant/pay-rent.html"
+           style="color:var(--primary)">Pay your first rent</a>
+      </td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+            const expected = Number(p.expectedAmount || 0);
+            const paid     = Number(p.amount         || 0);
+            const balance  = Math.max(0, expected - paid);
+
+            return `
+        <tr>
+          <td><strong>${p.paymentMonth || '—'}</strong></td>
+          <td style="color:var(--text-2)">${expected > 0 ? fmt(expected) : '—'}</td>
+          <td>
+            <strong>${fmt(paid)}</strong>
+            ${p.creditUsed && Number(p.creditUsed) > 0
+                ? `<div style="font-size:11px;color:var(--primary)">
+                  -${fmt(p.creditUsed)} credit used
+                 </div>`
+                : ''}
+          </td>
+          <td>
+            ${balance > 0
+                ? `<span style="color:var(--error);font-weight:600">
+                  ${fmt(balance)}
+                 </span>`
+                : p.excessAmount && Number(p.excessAmount) > 0
+                    ? `<span style="color:var(--success);font-size:13px">
+                    +${fmt(p.excessAmount)} credit
+                   </span>`
+                    : '<span style="color:var(--success)">✅ Cleared</span>'}
+          </td>
+          <td>
+            ${p.paymentType
+                ? `<span class="badge ${typeBadge[p.paymentType] || 'badge-info'}">
+                  ${p.paymentType}
+                 </span>`
+                : '—'}
+            ${p.lateReason
+                ? `<div style="font-size:11px;color:var(--error);margin-top:2px">
+                  ⚠️ ${p.lateReason}
+                 </div>`
+                : ''}
+          </td>
+          <td>
+            ${p.mpesaCode
+                ? `<code style="background:var(--bg);padding:2px 8px;border-radius:4px;font-size:12px">
+                  ${p.mpesaCode}
+                 </code>`
+                : '—'}
+          </td>
+          <td>${p.createdAt ? p.createdAt.substring(0, 10) : '—'}</td>
+          <td>
+            <span class="badge ${statusBadge[p.status] || 'badge-info'}">
+              ${p.status}
+            </span>
+          </td>
+        </tr>`;
+        }).join('');
+    }
+
+    function setFilter(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b =>
+            b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderTable();
     }
 
     loadPayments();

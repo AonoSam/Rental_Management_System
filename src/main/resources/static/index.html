@@ -1,9 +1,1342 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0; url=/login.html"/>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>RentEase — Smart Rental Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+    <style>
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+        :root {
+            --ink:    #0A0F1C;
+            --ink-2:  #3D4459;
+            --ink-3:  #7A8099;
+            --surface:#FFFFFF;
+            --bg:     #F4F6FB;
+            --blue:   #1A5CFF;
+            --blue-2: #0040DD;
+            --teal:   #00C9A7;
+            --amber:  #FFB703;
+            --red:    #FF4757;
+            --border: #E2E6F0;
+            --radius: 16px;
+        }
+
+        html { scroll-behavior:smooth; }
+
+        body {
+            font-family:'DM Sans', sans-serif;
+            background:var(--surface);
+            color:var(--ink);
+            line-height:1.6;
+            overflow-x:hidden;
+        }
+
+        /* ── Noise overlay ── */
+        body::before {
+            content:'';
+            position:fixed;
+            inset:0;
+            background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events:none;
+            z-index:1000;
+            opacity:.4;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position:fixed; top:0; left:0; right:0;
+            padding:0 5%;
+            height:72px;
+            display:flex; align-items:center; justify-content:space-between;
+            background:rgba(255,255,255,.88);
+            backdrop-filter:blur(16px);
+            border-bottom:1px solid rgba(0,0,0,.06);
+            z-index:100;
+        }
+
+        .nav-logo {
+            display:flex; align-items:center; gap:10px;
+            font-family:'Sora', sans-serif;
+            font-size:22px; font-weight:800;
+            color:var(--ink);
+            text-decoration:none;
+        }
+
+        .nav-logo .logo-icon {
+            width:38px; height:38px;
+            background:linear-gradient(135deg, var(--blue), var(--teal));
+            border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:18px;
+        }
+
+        .nav-links {
+            display:flex; align-items:center; gap:32px;
+            list-style:none;
+        }
+
+        .nav-links a {
+            font-size:15px; font-weight:500;
+            color:var(--ink-2);
+            text-decoration:none;
+            transition:color .2s;
+        }
+        .nav-links a:hover { color:var(--blue); }
+
+        .nav-cta {
+            display:flex; align-items:center; gap:12px;
+        }
+
+        .btn {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:10px 22px; border-radius:10px;
+            font-family:'DM Sans', sans-serif;
+            font-size:15px; font-weight:500;
+            cursor:pointer; text-decoration:none;
+            transition:all .2s;
+            border:none;
+        }
+
+        .btn-ghost {
+            background:transparent;
+            color:var(--ink);
+            border:1.5px solid var(--border);
+        }
+        .btn-ghost:hover { border-color:var(--blue); color:var(--blue); }
+
+        .btn-primary {
+            background:var(--blue);
+            color:#fff;
+        }
+        .btn-primary:hover {
+            background:var(--blue-2);
+            transform:translateY(-1px);
+            box-shadow:0 8px 24px rgba(26,92,255,.25);
+        }
+
+        .btn-lg {
+            padding:16px 32px;
+            font-size:16px;
+            border-radius:14px;
+        }
+
+        .hamburger {
+            display:none;
+            flex-direction:column; gap:5px;
+            background:none; border:none; cursor:pointer; padding:4px;
+        }
+        .hamburger span {
+            display:block; width:24px; height:2px;
+            background:var(--ink); border-radius:4px;
+            transition:all .3s;
+        }
+
+        /* ── HERO ── */
+        .hero {
+            min-height:100vh;
+            padding:140px 5% 80px;
+            display:flex; align-items:center;
+            position:relative;
+            overflow:hidden;
+        }
+
+        .hero-bg {
+            position:absolute; inset:0;
+            background:
+                    radial-gradient(ellipse 80% 60% at 70% 40%,
+                    rgba(26,92,255,.07) 0%, transparent 60%),
+                    radial-gradient(ellipse 50% 50% at 20% 80%,
+                    rgba(0,201,167,.06) 0%, transparent 60%);
+        }
+
+        .hero-grid {
+            position:absolute; inset:0;
+            background-image:
+                    linear-gradient(rgba(26,92,255,.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(26,92,255,.04) 1px, transparent 1px);
+            background-size:60px 60px;
+        }
+
+        .hero-inner {
+            position:relative; z-index:2;
+            max-width:1200px; margin:0 auto; width:100%;
+            display:grid; grid-template-columns:1fr 1fr; gap:80px;
+            align-items:center;
+        }
+
+        .hero-badge {
+            display:inline-flex; align-items:center; gap:8px;
+            background:rgba(26,92,255,.08);
+            color:var(--blue);
+            padding:6px 14px; border-radius:20px;
+            font-size:13px; font-weight:600;
+            margin-bottom:24px;
+            border:1px solid rgba(26,92,255,.15);
+        }
+
+        .hero-badge .dot {
+            width:6px; height:6px; border-radius:50%;
+            background:var(--teal);
+            animation:pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%,100%{ opacity:1; transform:scale(1); }
+            50%{ opacity:.5; transform:scale(.8); }
+        }
+
+        .hero-title {
+            font-family:'Sora', sans-serif;
+            font-size:clamp(42px, 5vw, 68px);
+            font-weight:800;
+            line-height:1.08;
+            letter-spacing:-.03em;
+            color:var(--ink);
+            margin-bottom:24px;
+        }
+
+        .hero-title .accent {
+            background:linear-gradient(135deg, var(--blue), var(--teal));
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+            background-clip:text;
+        }
+
+        .hero-desc {
+            font-size:18px; font-weight:300;
+            color:var(--ink-2);
+            margin-bottom:40px;
+            max-width:480px;
+            line-height:1.7;
+        }
+
+        .hero-actions {
+            display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+            margin-bottom:48px;
+        }
+
+        .hero-trust {
+            display:flex; align-items:center; gap:12px;
+            font-size:13px; color:var(--ink-3);
+        }
+
+        .trust-avatars {
+            display:flex;
+        }
+        .trust-avatars span {
+            width:32px; height:32px; border-radius:50%;
+            border:2px solid white;
+            display:flex; align-items:center; justify-content:center;
+            font-size:14px;
+            margin-left:-8px;
+        }
+        .trust-avatars span:first-child { margin-left:0; }
+        .av1 { background:#FFB703; }
+        .av2 { background:#00C9A7; }
+        .av3 { background:#1A5CFF; }
+        .av4 { background:#FF4757; }
+
+        /* ── HERO VISUAL ── */
+        .hero-visual {
+            position:relative;
+        }
+
+        .dashboard-mock {
+            background:white;
+            border:1px solid var(--border);
+            border-radius:20px;
+            overflow:hidden;
+            box-shadow:
+                    0 4px 6px rgba(0,0,0,.04),
+                    0 24px 64px rgba(26,92,255,.1),
+                    0 0 0 1px rgba(255,255,255,.6);
+            animation:float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%,100%{ transform:translateY(0); }
+            50%{ transform:translateY(-12px); }
+        }
+
+        .mock-topbar {
+            background:var(--ink);
+            padding:14px 20px;
+            display:flex; align-items:center; gap:8px;
+        }
+        .mock-dot { width:10px; height:10px; border-radius:50%; }
+        .mock-dot.red   { background:#FF5F57; }
+        .mock-dot.amber { background:#FFBD2E; }
+        .mock-dot.green { background:#28C840; }
+        .mock-title {
+            margin-left:auto;
+            font-size:13px; color:rgba(255,255,255,.5);
+            font-family:'Sora',sans-serif;
+        }
+
+        .mock-body { padding:20px; background:#F8F9FC; }
+
+        .mock-stats {
+            display:grid; grid-template-columns:repeat(4,1fr); gap:10px;
+            margin-bottom:16px;
+        }
+
+        .mock-stat {
+            background:white; border-radius:10px; padding:12px;
+            border:1px solid var(--border);
+        }
+        .mock-stat-label { font-size:10px; color:var(--ink-3); margin-bottom:4px; }
+        .mock-stat-value { font-size:16px; font-weight:700; font-family:'Sora',sans-serif; }
+        .mock-stat-value.blue  { color:var(--blue); }
+        .mock-stat-value.green { color:var(--teal); }
+        .mock-stat-value.amber { color:var(--amber); }
+        .mock-stat-value.red   { color:var(--red); }
+
+        .mock-table {
+            background:white; border-radius:10px;
+            border:1px solid var(--border); overflow:hidden;
+        }
+        .mock-table-header {
+            background:#F4F6FB; padding:10px 14px;
+            font-size:11px; font-weight:600; color:var(--ink-3);
+            text-transform:uppercase; letter-spacing:.05em;
+            display:grid; grid-template-columns:2fr 1fr 1fr 1fr;
+            gap:8px;
+        }
+        .mock-table-row {
+            padding:10px 14px;
+            display:grid; grid-template-columns:2fr 1fr 1fr 1fr;
+            gap:8px; align-items:center;
+            border-top:1px solid var(--border);
+            font-size:11px;
+        }
+        .mock-badge {
+            display:inline-block; padding:2px 7px; border-radius:20px;
+            font-size:10px; font-weight:600;
+        }
+        .mb-paid    { background:#DCFCE7; color:#16A34A; }
+        .mb-partial { background:#FEF9C3; color:#A16207; }
+        .mb-pending { background:#DBEAFE; color:#1D40AF; }
+
+        /* Floating cards */
+        .float-card {
+            position:absolute;
+            background:white;
+            border:1px solid var(--border);
+            border-radius:12px;
+            padding:12px 16px;
+            box-shadow:0 8px 32px rgba(0,0,0,.1);
+            font-size:13px;
+            animation:float 6s ease-in-out infinite;
+        }
+
+        .float-card-1 {
+            top:-24px; right:-24px;
+            animation-delay:-2s;
+        }
+        .float-card-2 {
+            bottom:-20px; left:-20px;
+            animation-delay:-4s;
+        }
+
+        .fc-label { font-size:11px; color:var(--ink-3); margin-bottom:4px; }
+        .fc-value { font-size:18px; font-weight:700; font-family:'Sora',sans-serif; color:var(--teal); }
+
+        /* ── SECTION BASE ── */
+        section { padding:100px 5%; }
+        .section-inner { max-width:1200px; margin:0 auto; }
+
+        .section-tag {
+            display:inline-flex; align-items:center; gap:6px;
+            font-size:12px; font-weight:600; color:var(--blue);
+            text-transform:uppercase; letter-spacing:.1em;
+            margin-bottom:16px;
+        }
+        .section-tag::before {
+            content:'';
+            display:block; width:20px; height:2px;
+            background:var(--blue); border-radius:2px;
+        }
+
+        .section-title {
+            font-family:'Sora', sans-serif;
+            font-size:clamp(32px,4vw,48px);
+            font-weight:800;
+            line-height:1.1;
+            letter-spacing:-.025em;
+            margin-bottom:16px;
+        }
+
+        .section-sub {
+            font-size:18px; font-weight:300;
+            color:var(--ink-2); max-width:560px;
+            line-height:1.7;
+        }
+
+        /* ── STATS BAR ── */
+        .stats-bar {
+            background:var(--ink);
+            padding:48px 5%;
+        }
+        .stats-inner {
+            max-width:1200px; margin:0 auto;
+            display:grid; grid-template-columns:repeat(4,1fr);
+            gap:40px;
+        }
+        .stat-item { text-align:center; }
+        .stat-num {
+            font-family:'Sora',sans-serif;
+            font-size:42px; font-weight:800;
+            color:white; line-height:1;
+            margin-bottom:8px;
+        }
+        .stat-num span { color:var(--teal); }
+        .stat-desc { font-size:14px; color:rgba(255,255,255,.5); font-weight:300; }
+
+        /* ── FEATURES ── */
+        .features { background:var(--bg); }
+
+        .features-grid {
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:24px;
+            margin-top:60px;
+        }
+
+        .feature-card {
+            background:white;
+            border:1px solid var(--border);
+            border-radius:20px;
+            padding:32px;
+            transition:all .3s;
+            position:relative;
+            overflow:hidden;
+        }
+        .feature-card::before {
+            content:'';
+            position:absolute; top:0; left:0; right:0; height:3px;
+            background:linear-gradient(90deg, var(--blue), var(--teal));
+            transform:scaleX(0); transform-origin:left;
+            transition:transform .3s;
+        }
+        .feature-card:hover { transform:translateY(-4px); box-shadow:0 20px 48px rgba(0,0,0,.08); }
+        .feature-card:hover::before { transform:scaleX(1); }
+
+        .feature-icon {
+            width:52px; height:52px; border-radius:14px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:24px; margin-bottom:20px;
+        }
+        .fi-blue   { background:rgba(26,92,255,.1); }
+        .fi-teal   { background:rgba(0,201,167,.1); }
+        .fi-amber  { background:rgba(255,183,3,.1); }
+        .fi-red    { background:rgba(255,71,87,.1); }
+        .fi-purple { background:rgba(139,92,246,.1); }
+        .fi-green  { background:rgba(34,197,94,.1); }
+
+        .feature-title {
+            font-family:'Sora',sans-serif;
+            font-size:18px; font-weight:700;
+            margin-bottom:10px;
+        }
+        .feature-desc {
+            font-size:14px; color:var(--ink-2);
+            line-height:1.7; font-weight:300;
+        }
+
+        /* ── HOW IT WORKS ── */
+        .how-grid {
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:80px; align-items:center;
+            margin-top:60px;
+        }
+
+        .steps { display:grid; gap:32px; }
+
+        .step {
+            display:flex; gap:20px;
+            padding:24px;
+            border-radius:16px;
+            border:1px solid transparent;
+            transition:all .3s;
+            cursor:default;
+        }
+        .step:hover {
+            background:white;
+            border-color:var(--border);
+            box-shadow:0 8px 32px rgba(0,0,0,.06);
+        }
+
+        .step-num {
+            width:44px; height:44px; border-radius:12px;
+            background:linear-gradient(135deg, var(--blue), var(--teal));
+            color:white;
+            font-family:'Sora',sans-serif;
+            font-size:18px; font-weight:800;
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0;
+        }
+        .step-content h4 {
+            font-family:'Sora',sans-serif;
+            font-size:17px; font-weight:700; margin-bottom:6px;
+        }
+        .step-content p { font-size:14px; color:var(--ink-2); font-weight:300; line-height:1.6; }
+
+        .how-visual {
+            position:relative;
+            background:linear-gradient(135deg, var(--ink) 0%, #1a2340 100%);
+            border-radius:24px;
+            padding:40px;
+            overflow:hidden;
+        }
+        .how-visual::before {
+            content:'';
+            position:absolute; inset:0;
+            background:
+                    radial-gradient(circle at 80% 20%,
+                    rgba(26,92,255,.3) 0%, transparent 50%),
+                    radial-gradient(circle at 20% 80%,
+                    rgba(0,201,167,.2) 0%, transparent 50%);
+        }
+        .how-visual-content { position:relative; z-index:1; }
+        .how-visual-title {
+            font-family:'Sora',sans-serif;
+            font-size:14px; font-weight:600;
+            color:rgba(255,255,255,.5);
+            text-transform:uppercase; letter-spacing:.1em;
+            margin-bottom:24px;
+        }
+
+        .role-cards { display:grid; gap:12px; }
+
+        .role-card {
+            background:rgba(255,255,255,.07);
+            border:1px solid rgba(255,255,255,.1);
+            border-radius:14px;
+            padding:16px 20px;
+            display:flex; align-items:center; gap:14px;
+            transition:all .3s;
+        }
+        .role-card:hover {
+            background:rgba(255,255,255,.12);
+            transform:translateX(4px);
+        }
+        .role-card-icon {
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:18px; flex-shrink:0;
+        }
+        .rci-blue   { background:rgba(26,92,255,.3); }
+        .rci-teal   { background:rgba(0,201,167,.3); }
+        .rci-amber  { background:rgba(255,183,3,.3); }
+        .role-card-info h5 {
+            font-family:'Sora',sans-serif;
+            font-size:14px; font-weight:700; color:white; margin-bottom:3px;
+        }
+        .role-card-info p { font-size:12px; color:rgba(255,255,255,.5); font-weight:300; }
+
+        /* ── PAYMENTS ── */
+        .payments { background:var(--bg); }
+
+        .payments-grid {
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:80px; align-items:center;
+            margin-top:60px;
+        }
+
+        .payment-visual {
+            background:white; border:1px solid var(--border);
+            border-radius:20px; padding:32px;
+            box-shadow:0 8px 32px rgba(0,0,0,.06);
+        }
+        .pv-title {
+            font-family:'Sora',sans-serif;
+            font-size:15px; font-weight:700;
+            margin-bottom:20px;
+            display:flex; align-items:center; gap:8px;
+        }
+        .pv-mpesa {
+            background:linear-gradient(135deg, #00A651, #007A3D);
+            color:white; font-size:12px; font-weight:700;
+            padding:3px 10px; border-radius:6px;
+        }
+
+        .payment-breakdown {
+            display:grid; gap:12px;
+        }
+        .pb-row {
+            display:flex; justify-content:space-between;
+            align-items:center; padding:12px 16px;
+            background:var(--bg); border-radius:10px;
+            font-size:14px;
+        }
+        .pb-label { color:var(--ink-2); font-weight:300; }
+        .pb-value { font-weight:600; }
+        .pb-value.green { color:var(--teal); }
+        .pb-value.red   { color:var(--red); }
+        .pb-value.blue  { color:var(--blue); }
+        .pb-row.total {
+            background:linear-gradient(135deg,
+            rgba(26,92,255,.06), rgba(0,201,167,.06));
+            border:1px solid rgba(26,92,255,.1);
+        }
+        .pb-row.total .pb-label { font-weight:600; font-size:15px; }
+        .pb-row.total .pb-value { font-size:18px; font-weight:800; color:var(--blue); }
+
+        .pb-status {
+            display:flex; align-items:center; gap:8px;
+            padding:12px 16px; border-radius:10px;
+            background:#DCFCE7; color:#16A34A;
+            font-size:13px; font-weight:600;
+            margin-top:4px;
+        }
+
+        .payments-info { display:grid; gap:20px; }
+        .pi-item {
+            display:flex; gap:16px; align-items:flex-start;
+            padding:20px;
+            background:white; border:1px solid var(--border);
+            border-radius:14px;
+        }
+        .pi-icon {
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:18px; flex-shrink:0;
+        }
+        .pi-item h4 { font-family:'Sora',sans-serif; font-size:15px; font-weight:700; margin-bottom:4px; }
+        .pi-item p  { font-size:13px; color:var(--ink-2); font-weight:300; line-height:1.5; }
+
+        /* ── TESTIMONIALS ── */
+        .testimonials-grid {
+            display:grid; grid-template-columns:repeat(3,1fr);
+            gap:24px; margin-top:60px;
+        }
+        .testimonial-card {
+            background:white; border:1px solid var(--border);
+            border-radius:20px; padding:28px;
+            transition:all .3s;
+        }
+        .testimonial-card:hover { box-shadow:0 16px 48px rgba(0,0,0,.08); transform:translateY(-2px); }
+
+        .stars { color:var(--amber); font-size:14px; margin-bottom:16px; letter-spacing:2px; }
+        .testimonial-text {
+            font-size:14px; color:var(--ink-2);
+            line-height:1.7; font-weight:300;
+            font-style:italic;
+            margin-bottom:20px;
+        }
+        .testimonial-author {
+            display:flex; align-items:center; gap:12px;
+        }
+        .author-avatar {
+            width:40px; height:40px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; font-weight:700; color:white;
+        }
+        .author-name { font-family:'Sora',sans-serif; font-size:14px; font-weight:700; }
+        .author-role { font-size:12px; color:var(--ink-3); }
+
+        /* ── CTA ── */
+        .cta-section {
+            background:linear-gradient(135deg, var(--ink) 0%, #1a2340 100%);
+            position:relative; overflow:hidden;
+            padding:100px 5%;
+        }
+        .cta-section::before {
+            content:'';
+            position:absolute; inset:0;
+            background:
+                    radial-gradient(ellipse 60% 60% at 30% 50%,
+                    rgba(26,92,255,.25) 0%, transparent 60%),
+                    radial-gradient(ellipse 40% 40% at 80% 60%,
+                    rgba(0,201,167,.15) 0%, transparent 60%);
+        }
+        .cta-inner {
+            max-width:720px; margin:0 auto;
+            text-align:center; position:relative; z-index:1;
+        }
+        .cta-inner h2 {
+            font-family:'Sora',sans-serif;
+            font-size:clamp(36px,4vw,52px);
+            font-weight:800; color:white;
+            line-height:1.1; margin-bottom:20px;
+            letter-spacing:-.025em;
+        }
+        .cta-inner p {
+            font-size:18px; color:rgba(255,255,255,.6);
+            font-weight:300; margin-bottom:40px; line-height:1.7;
+        }
+        .cta-actions { display:flex; justify-content:center; gap:16px; flex-wrap:wrap; }
+
+        .btn-white {
+            background:white; color:var(--ink);
+        }
+        .btn-white:hover {
+            transform:translateY(-2px);
+            box-shadow:0 8px 32px rgba(255,255,255,.2);
+        }
+
+        .btn-outline-white {
+            background:transparent;
+            color:white;
+            border:1.5px solid rgba(255,255,255,.3);
+        }
+        .btn-outline-white:hover {
+            border-color:white;
+            background:rgba(255,255,255,.08);
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            background:var(--ink);
+            padding:60px 5% 32px;
+            border-top:1px solid rgba(255,255,255,.08);
+        }
+        .footer-inner {
+            max-width:1200px; margin:0 auto;
+        }
+        .footer-grid {
+            display:grid; grid-template-columns:2fr 1fr 1fr 1fr;
+            gap:60px; margin-bottom:48px;
+        }
+        .footer-brand {
+            display:flex; align-items:center; gap:10px;
+            font-family:'Sora',sans-serif; font-size:20px; font-weight:800;
+            color:white; margin-bottom:16px;
+        }
+        .footer-brand .logo-icon {
+            width:34px; height:34px; border-radius:8px;
+            background:linear-gradient(135deg, var(--blue), var(--teal));
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px;
+        }
+        .footer-desc { font-size:14px; color:rgba(255,255,255,.4); font-weight:300; line-height:1.6; max-width:280px; }
+        .footer-col h5 {
+            font-family:'Sora',sans-serif; font-size:13px; font-weight:700;
+            color:rgba(255,255,255,.5);
+            text-transform:uppercase; letter-spacing:.1em;
+            margin-bottom:16px;
+        }
+        .footer-col ul { list-style:none; display:grid; gap:10px; }
+        .footer-col a { font-size:14px; color:rgba(255,255,255,.5); text-decoration:none; font-weight:300; transition:color .2s; }
+        .footer-col a:hover { color:white; }
+        .footer-bottom {
+            border-top:1px solid rgba(255,255,255,.08);
+            padding-top:28px;
+            display:flex; justify-content:space-between; align-items:center;
+            flex-wrap:wrap; gap:12px;
+        }
+        .footer-bottom p { font-size:13px; color:rgba(255,255,255,.3); font-weight:300; }
+        .footer-tech {
+            display:flex; align-items:center; gap:8px;
+            font-size:12px; color:rgba(255,255,255,.3);
+        }
+        .tech-badge {
+            background:rgba(255,255,255,.06);
+            border:1px solid rgba(255,255,255,.1);
+            padding:3px 8px; border-radius:6px;
+            font-size:11px;
+        }
+
+        /* ── MOBILE NAV ── */
+        .mobile-nav {
+            display:none;
+            position:fixed; inset:0; top:72px;
+            background:white;
+            padding:24px 5%;
+            z-index:99;
+            flex-direction:column; gap:8px;
+        }
+        .mobile-nav.open { display:flex; }
+        .mobile-nav a {
+            padding:14px 16px; border-radius:10px;
+            font-size:16px; font-weight:500;
+            color:var(--ink); text-decoration:none;
+            border:1px solid transparent;
+            transition:all .15s;
+        }
+        .mobile-nav a:hover { background:var(--bg); border-color:var(--border); }
+
+        /* ── ANIMATIONS ── */
+        .fade-up {
+            opacity:0; transform:translateY(24px);
+            animation:fadeUp .6s ease forwards;
+        }
+        @keyframes fadeUp {
+            to { opacity:1; transform:translateY(0); }
+        }
+        .delay-1 { animation-delay:.1s; }
+        .delay-2 { animation-delay:.2s; }
+        .delay-3 { animation-delay:.3s; }
+        .delay-4 { animation-delay:.4s; }
+        .delay-5 { animation-delay:.5s; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width:1024px) {
+            .features-grid { grid-template-columns:repeat(2,1fr); }
+            .testimonials-grid { grid-template-columns:repeat(2,1fr); }
+        }
+
+        @media (max-width:768px) {
+            .nav-links, .nav-cta { display:none; }
+            .hamburger { display:flex; }
+
+            .hero-inner { grid-template-columns:1fr; gap:40px; }
+            .hero-visual { display:none; }
+            .hero { padding:120px 5% 60px; }
+
+            .stats-inner { grid-template-columns:repeat(2,1fr); gap:24px; }
+
+            .features-grid { grid-template-columns:1fr; }
+            .how-grid { grid-template-columns:1fr; gap:40px; }
+            .payments-grid { grid-template-columns:1fr; gap:40px; }
+            .testimonials-grid { grid-template-columns:1fr; }
+
+            .footer-grid { grid-template-columns:1fr 1fr; gap:32px; }
+            .footer-brand-col { grid-column:1/-1; }
+        }
+
+        @media (max-width:480px) {
+            .stats-inner { grid-template-columns:1fr 1fr; }
+            .footer-grid { grid-template-columns:1fr; }
+        }
+    </style>
 </head>
 <body>
-<p>Redirecting to <a href="/login.html">login</a>...</p>
+
+<!-- Navigation -->
+<nav>
+    <a href="#" class="nav-logo">
+        <div class="logo-icon">🏢</div>
+        RentEase
+    </a>
+    <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="#payments">Payments</a></li>
+        <li><a href="#testimonials">Testimonials</a></li>
+    </ul>
+    <div class="nav-cta">
+        <a href="/login.html" class="btn btn-ghost">Log in</a>
+        <a href="/register.html" class="btn btn-primary">Get started →</a>
+    </div>
+    <button class="hamburger" onclick="toggleMenu()" id="hamburger">
+        <span></span><span></span><span></span>
+    </button>
+</nav>
+
+<!-- Mobile nav -->
+<div class="mobile-nav" id="mobileNav">
+    <a href="#features"     onclick="toggleMenu()">Features</a>
+    <a href="#how-it-works" onclick="toggleMenu()">How it works</a>
+    <a href="#payments"     onclick="toggleMenu()">Payments</a>
+    <a href="#testimonials" onclick="toggleMenu()">Testimonials</a>
+    <a href="/login.html"   style="margin-top:8px">Log in</a>
+    <a href="/register.html" class="btn btn-primary" style="text-align:center;margin-top:4px">
+        Get started →
+    </a>
+</div>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-inner">
+        <div>
+            <div class="hero-badge fade-up">
+                <div class="dot"></div>
+                Built for Kenyan landlords
+            </div>
+            <h1 class="hero-title fade-up delay-1">
+                Manage your<br/>
+                rentals <span class="accent">effortlessly</span>
+            </h1>
+            <p class="hero-desc fade-up delay-2">
+                RentEase brings your properties, tenants, payments and
+                maintenance into one intelligent platform —
+                with M-Pesa built right in.
+            </p>
+            <div class="hero-actions fade-up delay-3">
+                <a href="/register.html" class="btn btn-primary btn-lg">
+                    Start for free →
+                </a>
+                <a href="/login.html" class="btn btn-ghost btn-lg">
+                    Log in
+                </a>
+            </div>
+            <div class="hero-trust fade-up delay-4">
+                <div class="trust-avatars">
+                    <span class="av1">🧑</span>
+                    <span class="av2">👩</span>
+                    <span class="av3">🧔</span>
+                    <span class="av4">👱</span>
+                </div>
+                <span>Trusted by landlords across Kenya</span>
+            </div>
+        </div>
+
+        <!-- Dashboard mockup -->
+        <div class="hero-visual fade-up delay-3">
+            <div class="float-card float-card-1">
+                <div class="fc-label">💰 Collected this month</div>
+                <div class="fc-value">KES 142,000</div>
+            </div>
+            <div class="dashboard-mock">
+                <div class="mock-topbar">
+                    <div class="mock-dot red"></div>
+                    <div class="mock-dot amber"></div>
+                    <div class="mock-dot green"></div>
+                    <span class="mock-title">RentEase Admin Dashboard</span>
+                </div>
+                <div class="mock-body">
+                    <div class="mock-stats">
+                        <div class="mock-stat">
+                            <div class="mock-stat-label">Properties</div>
+                            <div class="mock-stat-value blue">4</div>
+                        </div>
+                        <div class="mock-stat">
+                            <div class="mock-stat-label">Tenants</div>
+                            <div class="mock-stat-value green">28</div>
+                        </div>
+                        <div class="mock-stat">
+                            <div class="mock-stat-label">Vacant</div>
+                            <div class="mock-stat-value amber">3</div>
+                        </div>
+                        <div class="mock-stat">
+                            <div class="mock-stat-label">Arrears</div>
+                            <div class="mock-stat-value red">2</div>
+                        </div>
+                    </div>
+                    <div class="mock-table">
+                        <div class="mock-table-header">
+                            <span>Tenant</span>
+                            <span>Month</span>
+                            <span>Amount</span>
+                            <span>Status</span>
+                        </div>
+                        <div class="mock-table-row">
+                            <span>John Kamau</span>
+                            <span>Jun 2026</span>
+                            <span>KES 8,000</span>
+                            <span><span class="mock-badge mb-paid">PAID</span></span>
+                        </div>
+                        <div class="mock-table-row">
+                            <span>Mary Wanjiku</span>
+                            <span>Jun 2026</span>
+                            <span>KES 5,000</span>
+                            <span><span class="mock-badge mb-partial">PARTIAL</span></span>
+                        </div>
+                        <div class="mock-table-row">
+                            <span>Peter Omondi</span>
+                            <span>Jun 2026</span>
+                            <span>KES 6,500</span>
+                            <span><span class="mock-badge mb-pending">PENDING</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="float-card float-card-2">
+                <div class="fc-label">✅ Maintenance resolved</div>
+                <div class="fc-value" style="color:var(--blue)">12 issues</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats bar -->
+<div class="stats-bar">
+    <div class="stats-inner">
+        <div class="stat-item">
+            <div class="stat-num">500<span>+</span></div>
+            <div class="stat-desc">Properties managed</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">2<span>k+</span></div>
+            <div class="stat-desc">Active tenants</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">KES 50<span>M+</span></div>
+            <div class="stat-desc">Rent collected</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">99<span>%</span></div>
+            <div class="stat-desc">Payment success rate</div>
+        </div>
+    </div>
+</div>
+
+<!-- Features -->
+<section class="features" id="features">
+    <div class="section-inner">
+        <div class="section-tag">Features</div>
+        <h2 class="section-title">Everything you need,<br/>nothing you don't</h2>
+        <p class="section-sub">
+            From tenant onboarding to rent collection and maintenance tracking —
+            every tool a modern landlord needs.
+        </p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon fi-blue">🏢</div>
+                <h3 class="feature-title">Property Management</h3>
+                <p class="feature-desc">
+                    Add multiple properties with units, track occupancy rates,
+                    manage vacant units and get a clear overview of your entire portfolio.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-teal">💳</div>
+                <h3 class="feature-title">M-Pesa Payments</h3>
+                <p class="feature-desc">
+                    Tenants pay rent directly via M-Pesa STK Push. Payments are
+                    confirmed instantly, receipts generated automatically.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-amber">⚠️</div>
+                <h3 class="feature-title">Arrears Tracking</h3>
+                <p class="feature-desc">
+                    Automatically calculates arrears when a tenant underpays.
+                    Previous month balances are carried forward and added to the next due amount.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-red">🔧</div>
+                <h3 class="feature-title">Maintenance Requests</h3>
+                <p class="feature-desc">
+                    Tenants report issues directly in the app. Admin and caretaker
+                    are notified instantly and can update progress with notes.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-purple">🔑</div>
+                <h3 class="feature-title">Caretaker Management</h3>
+                <p class="feature-desc">
+                    Assign caretakers to specific properties. They see only their
+                    assigned property — tenants, units and maintenance requests.
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-green">📈</div>
+                <h3 class="feature-title">Reports & Analytics</h3>
+                <p class="feature-desc">
+                    Monthly revenue charts, occupancy rates, repair expense tracking
+                    and net collections — all in one clear financial overview.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section id="how-it-works">
+    <div class="section-inner">
+        <div class="section-tag">How it works</div>
+        <h2 class="section-title">Three roles,<br/>one platform</h2>
+        <p class="section-sub">
+            Admin, caretaker and tenant each have their own focused dashboard
+            — built for their specific responsibilities.
+        </p>
+        <div class="how-grid">
+            <div class="steps">
+                <div class="step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                        <h4>Admin sets up properties</h4>
+                        <p>Add buildings, create units, set rent amounts and assign caretakers to properties.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                        <h4>Register tenants</h4>
+                        <p>Admin or caretaker registers tenants, assigns them to units and sets lease dates.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                        <h4>Tenants pay via M-Pesa</h4>
+                        <p>Tenant opens the app, sees their balance due and triggers an STK push to their phone.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-num">4</div>
+                    <div class="step-content">
+                        <h4>Everyone gets notified</h4>
+                        <p>Payment confirmations, maintenance updates and admin notices are delivered in real time.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="how-visual">
+                <div class="how-visual-content">
+                    <div class="how-visual-title">Who uses RentEase</div>
+                    <div class="role-cards">
+                        <div class="role-card">
+                            <div class="role-card-icon rci-blue">👤</div>
+                            <div class="role-card-info">
+                                <h5>Admin (Landlord)</h5>
+                                <p>Full control — properties, tenants, payments, reports, sessions</p>
+                            </div>
+                        </div>
+                        <div class="role-card">
+                            <div class="role-card-icon rci-teal">🔑</div>
+                            <div class="role-card-info">
+                                <h5>Caretaker</h5>
+                                <p>Manages one assigned property — tenants, units, maintenance</p>
+                            </div>
+                        </div>
+                        <div class="role-card">
+                            <div class="role-card-icon rci-amber">🏠</div>
+                            <div class="role-card-info">
+                                <h5>Tenant</h5>
+                                <p>Pay rent, report issues, view payment history and notifications</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Payments section -->
+<section class="payments" id="payments">
+    <div class="section-inner">
+        <div class="section-tag">Payments</div>
+        <h2 class="section-title">Smart rent collection<br/>with M-Pesa</h2>
+        <p class="section-sub">
+            No more chasing tenants. Set a payment window, track arrears
+            automatically and let M-Pesa handle the rest.
+        </p>
+        <div class="payments-grid">
+            <div class="payment-visual">
+                <div class="pv-title">
+                    Payment breakdown
+                    <span class="pv-mpesa">M-Pesa</span>
+                </div>
+                <div class="payment-breakdown">
+                    <div class="pb-row">
+                        <span class="pb-label">Monthly rent</span>
+                        <span class="pb-value">KES 8,000</span>
+                    </div>
+                    <div class="pb-row">
+                        <span class="pb-label" style="color:#DC2626">⚠️ Previous arrears</span>
+                        <span class="pb-value red">+ KES 2,000</span>
+                    </div>
+                    <div class="pb-row">
+                        <span class="pb-label" style="color:#16A34A">💳 Credit balance</span>
+                        <span class="pb-value green">− KES 500</span>
+                    </div>
+                    <div class="pb-row total">
+                        <span class="pb-label">Total due</span>
+                        <span class="pb-value blue">KES 9,500</span>
+                    </div>
+                    <div class="pb-status">
+                        ✅ Payment confirmed — QNE8K2L5MP
+                    </div>
+                </div>
+            </div>
+
+            <div class="payments-info">
+                <div class="pi-item">
+                    <div class="pi-icon fi-teal">📅</div>
+                    <div>
+                        <h4>Payment window enforcement</h4>
+                        <p>Admin sets allowed payment dates (e.g. 1st–5th). Late payments are flagged and require a reason.</p>
+                    </div>
+                </div>
+                <div class="pi-item">
+                    <div class="pi-icon fi-amber">🔄</div>
+                    <div>
+                        <h4>Automatic arrears carry-forward</h4>
+                        <p>When a tenant underpays, the balance is tracked and automatically added to the next month's due amount.</p>
+                    </div>
+                </div>
+                <div class="pi-item">
+                    <div class="pi-icon fi-blue">💳</div>
+                    <div>
+                        <h4>Credit balance management</h4>
+                        <p>Overpayments are saved as credit and automatically deducted from the following month's rent.</p>
+                    </div>
+                </div>
+                <div class="pi-item">
+                    <div class="pi-icon fi-green">📱</div>
+                    <div>
+                        <h4>Instant STK Push</h4>
+                        <p>Tenant pays directly from their phone via M-Pesa prompt. No manual transfers, no confusion.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials -->
+<section id="testimonials">
+    <div class="section-inner">
+        <div class="section-tag">Testimonials</div>
+        <h2 class="section-title">Landlords love<br/>RentEase</h2>
+        <p class="section-sub">
+            See what property owners across Kenya say about managing
+            their rentals with RentEase.
+        </p>
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <div class="stars">★★★★★</div>
+                <p class="testimonial-text">
+                    "I used to chase tenants for rent every month.
+                    Now they pay via M-Pesa and I get notified instantly.
+                    RentEase has saved me so much time."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar" style="background:#1A5CFF">JK</div>
+                    <div>
+                        <div class="author-name">James Kamau</div>
+                        <div class="author-role">Landlord · Nairobi</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="stars">★★★★★</div>
+                <p class="testimonial-text">
+                    "The arrears system is brilliant. I know exactly who owes what
+                    and the balance is added automatically. No more manual calculations."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar" style="background:#00C9A7">MW</div>
+                    <div>
+                        <div class="author-name">Mary Wangari</div>
+                        <div class="author-role">Property owner · Kisumu</div>
+                    </div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="stars">★★★★★</div>
+                <p class="testimonial-text">
+                    "As a tenant, I love how I can see exactly what I owe — including
+                    any previous balance. And paying with M-Pesa takes just seconds."
+                </p>
+                <div class="testimonial-author">
+                    <div class="author-avatar" style="background:#FFB703">PO</div>
+                    <div>
+                        <div class="author-name">Peter Ochieng</div>
+                        <div class="author-role">Tenant · Mombasa</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+    <div class="cta-inner">
+        <h2>Ready to simplify<br/>your rentals?</h2>
+        <p>
+            Join landlords across Kenya who have ditched spreadsheets
+            and WhatsApp groups for RentEase.
+        </p>
+        <div class="cta-actions">
+            <a href="/register.html" class="btn btn-white btn-lg">
+                Get started free →
+            </a>
+            <a href="/login.html" class="btn btn-outline-white btn-lg">
+                Log in
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="footer-inner">
+        <div class="footer-grid">
+            <div class="footer-brand-col">
+                <div class="footer-brand">
+                    <div class="logo-icon">🏢</div>
+                    RentEase
+                </div>
+                <p class="footer-desc">
+                    The smart rental management platform built for
+                    Kenyan landlords. M-Pesa integrated, mobile-first.
+                </p>
+            </div>
+            <div class="footer-col">
+                <h5>Product</h5>
+                <ul>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#payments">Payments</a></li>
+                    <li><a href="#how-it-works">How it works</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Roles</h5>
+                <ul>
+                    <li><a href="/login.html">Admin</a></li>
+                    <li><a href="/login.html">Caretaker</a></li>
+                    <li><a href="/login.html">Tenant</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h5>Account</h5>
+                <ul>
+                    <li><a href="/login.html">Log in</a></li>
+                    <li><a href="/register.html">Register</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 RentEase. Built for Kenya.</p>
+            <div class="footer-tech">
+                <span>Powered by</span>
+                <span class="tech-badge">Spring Boot</span>
+                <span class="tech-badge">M-Pesa Daraja</span>
+                <span class="tech-badge">MySQL</span>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script>
+    function toggleMenu() {
+        const nav  = document.getElementById('mobileNav');
+        const icon = document.getElementById('hamburger');
+        nav.classList.toggle('open');
+        icon.classList.toggle('open');
+    }
+
+    // Smooth scroll for nav links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            const id = a.getAttribute('href').slice(1);
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior:'smooth' });
+        });
+    });
+
+    // Scroll-triggered fade-ins
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+            if (e.isIntersecting) {
+                e.target.style.opacity     = '1';
+                e.target.style.transform   = 'translateY(0)';
+                e.target.style.transition  = 'opacity .6s ease, transform .6s ease';
+                observer.unobserve(e.target);
+            }
+        });
+    }, { threshold:0.1 });
+
+    document.querySelectorAll(
+        '.feature-card, .step, .testimonial-card, .pi-item, .role-card'
+    ).forEach(el => {
+        el.style.opacity   = '0';
+        el.style.transform = 'translateY(20px)';
+        observer.observe(el);
+    });
+</script>
 </body>
 </html>

@@ -166,49 +166,67 @@
             ]);
             tenantProfile = data.tenant;
 
-            const rent   = Number(arrears.rentAmount);
-            const arr    = Number(arrears.arrears);
-            const credit = Number(arrears.creditBalance);
-            const total  = Number(arrears.totalDue);
+            const rent         = Number(arrears.rentAmount         || 0);
+            const prevArrears  = Number(arrears.previousArrears    || 0);
+            const paidThisMonth= Number(arrears.amountPaidThisMonth|| 0);
+            const balance      = Number(arrears.balanceThisMonth   || 0);
+            const credit       = Number(arrears.creditBalance      || 0);
+            const totalDue     = Number(arrears.totalDue           || 0);
+            const status       = arrears.paymentStatus;
+            const fullyPaid    = arrears.fullyPaid;
 
-            // Update rent display
             document.getElementById('rentDisplay').textContent =
                 'KES ' + rent.toLocaleString();
 
-            // Set amount to pay
-            document.getElementById('payAmount').value = total > 0 ? total : rent;
+            // Set amount to remaining balance
+            document.getElementById('payAmount').value =
+                totalDue > 0 ? totalDue : rent;
+
             if (tenantProfile.phone)
                 document.getElementById('payPhone').value = tenantProfile.phone;
             document.getElementById('payMonth').value =
                 new Date().toISOString().substring(0, 7);
 
-            // Build breakdown banner
-            let breakdownHtml = `
+            // Build payment breakdown
+            let breakdown = `
             <div style="background:var(--bg);border:1px solid var(--border);
                         border-radius:10px;padding:14px 16px;margin-bottom:16px;
                         font-size:13px">
                 <div style="font-weight:600;margin-bottom:10px">
-                    💰 Payment breakdown
-                </div>
-                <div style="display:flex;justify-content:space-between;
-                            padding:6px 0;border-bottom:1px solid var(--border)">
-                    <span style="color:var(--text-2)">This month's rent</span>
-                    <span>KES ${rent.toLocaleString()}</span>
+                    💰 Payment breakdown — ${arrears.currentMonth}
                 </div>`;
 
-            if (arr > 0) {
-                breakdownHtml += `
+            breakdown += `
+            <div style="display:flex;justify-content:space-between;
+                        padding:6px 0;border-bottom:1px solid var(--border)">
+                <span style="color:var(--text-2)">Monthly rent</span>
+                <span>KES ${rent.toLocaleString()}</span>
+            </div>`;
+
+            if (paidThisMonth > 0) {
+                breakdown += `
+                <div style="display:flex;justify-content:space-between;
+                            padding:6px 0;border-bottom:1px solid var(--border)">
+                    <span style="color:var(--success)">✅ Already paid this month</span>
+                    <span style="color:var(--success);font-weight:600">
+                        KES ${paidThisMonth.toLocaleString()}
+                    </span>
+                </div>`;
+            }
+
+            if (prevArrears > 0 && paidThisMonth === 0) {
+                breakdown += `
                 <div style="display:flex;justify-content:space-between;
                             padding:6px 0;border-bottom:1px solid var(--border)">
                     <span style="color:var(--error)">⚠️ Previous arrears</span>
                     <span style="color:var(--error);font-weight:600">
-                        + KES ${arr.toLocaleString()}
+                        + KES ${prevArrears.toLocaleString()}
                     </span>
                 </div>`;
             }
 
             if (credit > 0) {
-                breakdownHtml += `
+                breakdown += `
                 <div style="display:flex;justify-content:space-between;
                             padding:6px 0;border-bottom:1px solid var(--border)">
                     <span style="color:var(--success)">💳 Credit balance</span>
@@ -218,24 +236,39 @@
                 </div>`;
             }
 
-            breakdownHtml += `
-                <div style="display:flex;justify-content:space-between;
-                            padding:8px 0;font-weight:700;font-size:15px">
-                    <span>Total due</span>
-                    <span style="color:var(--primary)">
-                        KES ${total.toLocaleString()}
-                    </span>
-                </div>
-            </div>`;
+            // Status badge
+            const statusColors = {
+                PARTIAL:  { bg:'#FFFBEB', color:'#D97706', label:'⚠️ Partial — balance remaining' },
+                CLEARED:  { bg:'#F0FDF4', color:'#16A34A', label:'✅ Fully paid' },
+                OVERDUE:  { bg:'#FEF2F2', color:'#DC2626', label:'🔴 Overdue' },
+                PENDING:  { bg:'#EFF6FF', color:'#2563EB', label:'🔵 Not yet paid' },
+                EXCESS:   { bg:'#F0FDF4', color:'#16A34A', label:'✅ Overpaid (credit saved)' },
+            };
 
-            document.getElementById('windowBanner').innerHTML = breakdownHtml;
+            const sc = statusColors[status] || statusColors.PENDING;
+
+            breakdown += `
+            <div style="display:flex;justify-content:space-between;
+                        padding:8px 0;font-weight:700;font-size:15px">
+                <span>Balance due</span>
+                <span style="color:var(--primary)">
+                    KES ${totalDue.toLocaleString()}
+                </span>
+            </div>
+            <div style="background:${sc.bg};color:${sc.color};border-radius:8px;
+                        padding:8px 12px;margin-top:8px;font-size:13px;font-weight:500">
+                ${sc.label}
+            </div>
+        </div>`;
+
+            document.getElementById('windowBanner').innerHTML = breakdown;
 
             // Payment window status
             const lateGroup = document.getElementById('lateReasonGroup');
-            const windowDiv = document.createElement('div');
+            let windowHtml;
 
             if (window.withinWindow) {
-                windowDiv.innerHTML = `
+                windowHtml = `
                 <div style="background:#F0FDF4;border:1px solid #BBF7D0;
                             border-radius:10px;padding:12px 16px;
                             font-size:13px;color:#16A34A;margin-bottom:16px">
@@ -244,26 +277,27 @@
                 </div>`;
                 lateGroup.style.display = 'none';
             } else {
-                windowDiv.innerHTML = `
+                windowHtml = `
                 <div style="background:#FEF2F2;border:1px solid #FECACA;
                             border-radius:10px;padding:12px 16px;
                             font-size:13px;color:#DC2626;margin-bottom:16px">
                     ⚠️ Payment window closed (Day ${window.startDay}–${window.endDay}).
                     This payment will be flagged as <strong>Late</strong>.
+                    Please provide a reason.
                 </div>`;
                 lateGroup.style.display = 'block';
             }
 
-            document.getElementById('windowBanner')
-                .appendChild(windowDiv.firstElementChild);
+            document.getElementById('windowBanner').innerHTML += windowHtml;
 
-            // Already paid?
-            if (data.paidThisMonth) {
-                document.getElementById('payAlert').textContent =
-                    '✅ Rent fully paid for this month.';
-                document.getElementById('payAlert').className =
-                    'alert alert-success show';
-                document.getElementById('payBtn').disabled = true;
+            // Disable pay button if fully paid
+            const payBtn = document.getElementById('payBtn');
+            if (fullyPaid || totalDue <= 0) {
+                payBtn.disabled = true;
+                payBtn.querySelector('.btn-text').textContent = '✅ Rent fully paid';
+            } else if (status === 'PARTIAL') {
+                payBtn.querySelector('.btn-text').textContent =
+                    `📲 Pay balance KES ${totalDue.toLocaleString()}`;
             }
 
         } catch (err) { console.error(err); }

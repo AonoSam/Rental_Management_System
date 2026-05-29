@@ -152,3 +152,15 @@ const PaymentSettingsAPI = {
     update: (body) => apiFetch('/payment-settings',
         { method: 'PUT', body: JSON.stringify(body) }),
 };
+
+const RepairAPI = {
+    list:           ()          => apiFetch('/repairs'),
+    byProperty:     (id)        => apiFetch(`/repairs/property/${id}`),
+    create:         (body)      => apiFetch('/repairs',
+        { method:'POST', body:JSON.stringify(body) }),
+    update:         (id, body)  => apiFetch(`/repairs/${id}`,
+        { method:'PUT', body:JSON.stringify(body) }),
+    delete:         (id)        => apiFetch(`/repairs/${id}`,
+        { method:'DELETE' }),
+    expenseSummary: ()          => apiFetch('/repairs/expenses/summary'),
+};

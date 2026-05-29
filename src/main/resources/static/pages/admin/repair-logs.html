@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Repair Logs — RentEase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+    <style>
+        .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:10px; }
+        .filters { display:flex; gap:10px; margin-bottom:20px; overflow-x:auto; padding-bottom:4px; }
+        .filter-btn { padding:7px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); font-size:13px; font-weight:500; cursor:pointer; color:var(--text-2); white-space:nowrap; }
+        .filter-btn.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+        .expense-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:14px; margin-bottom:28px; }
+        .expense-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+        .expense-label { font-size:12px; color:var(--text-2); font-weight:500; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+        .expense-value { font-size:22px; font-weight:700; line-height:1.2; }
+        .expense-sub   { font-size:12px; color:var(--text-2); margin-top:4px; }
+        .c-red   { color:var(--error); }
+        .c-green { color:var(--success); }
+        .c-blue  { color:var(--primary); }
+        .c-amber { color:#D97706; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; }
+        .modal-overlay.open { opacity:1; pointer-events:all; }
+        .modal { background:var(--surface); border-radius:16px; padding:28px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; transform:translateY(16px); transition:transform .2s; }
+        .modal-overlay.open .modal { transform:translateY(0); }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+        .modal-header h3 { font-size:18px; font-weight:600; }
+        .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text-2); }
+        select { width:100%; height:48px; padding:0 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; color:var(--text-1); background:var(--surface); outline:none; }
+        select:focus { border-color:var(--primary); }
+        textarea { width:100%; padding:12px 16px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:15px; font-family:inherit; resize:vertical; outline:none; min-height:80px; }
+        textarea:focus { border-color:var(--primary); }
+        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .repairs-grid { display:grid; gap:12px; }
+        .repair-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+        .repair-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; background:var(--bg); }
+        .repair-body { flex:1; min-width:200px; }
+        .repair-desc { font-size:15px; font-weight:600; margin-bottom:4px; }
+        .repair-meta { font-size:13px; color:var(--text-2); display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+        .repair-cost { font-size:18px; font-weight:700; color:var(--error); white-space:nowrap; }
+        .repair-actions { display:flex; gap:8px; margin-top:8px; }
+        .btn-edit { padding:6px 12px; border-radius:8px; border:1.5px solid var(--border); background:none; font-size:12px; cursor:pointer; }
+        .btn-edit:hover { border-color:var(--primary); color:var(--primary); }
+        .btn-del  { padding:6px 12px; border-radius:8px; border:1.5px solid #FECACA; background:none; font-size:12px; cursor:pointer; color:var(--error); }
+        .btn-del:hover { background:#FEF2F2; }
+        .cat-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; background:var(--bg); color:var(--text-2); margin-top:4px; }
+        .empty-state { text-align:center; padding:60px 20px; color:var(--text-2); }
+        .empty-state .icon { font-size:48px; margin-bottom:12px; }
+    </style>
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><div class="icon">🏢</div><span>RentEase</span></div>
+        <nav class="sidebar-nav">
+            <a href="/pages/admin/dashboard.html"     class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="/pages/admin/properties.html"    class="nav-item"><span class="nav-icon">🏠</span> Properties</a>
+            <a href="/pages/admin/tenants.html"       class="nav-item"><span class="nav-icon">👥</span> Tenants</a>
+            <a href="/pages/admin/caretaker.html"     class="nav-item"><span class="nav-icon">🔑</span> Caretakers</a>
+            <a href="/pages/admin/payments.html"      class="nav-item"><span class="nav-icon">💳</span> Payments</a>
+            <a href="/pages/admin/maintenance.html"   class="nav-item"><span class="nav-icon">🔧</span> Maintenance</a>
+            <a href="/pages/admin/repair-logs.html"   class="nav-item active"><span class="nav-icon">🛠</span> Repair Logs</a>
+            <a href="/pages/admin/reports.html"       class="nav-item"><span class="nav-icon">📈</span> Reports</a>
+            <a href="/pages/admin/sessions.html"      class="nav-item"><span class="nav-icon">🖥</span> Sessions</a>
+            <a href="/pages/admin/notifications.html" class="nav-item"><span class="nav-icon">🔔</span> Notifications</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span> Logout</a>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="topbar">
+            <h1>Repair Logs</h1>
+            <div class="user-pill">
+                <div class="avatar" id="userAvatar">A</div>
+                <span id="userName">Admin</span>
+            </div>
+        </div>
+
+        <!-- Financial summary -->
+        <div class="expense-grid">
+            <div class="expense-card">
+                <div class="expense-label">Total expenses (all time)</div>
+                <div class="expense-value c-red" id="totalExpenses">—</div>
+                <div class="expense-sub">spent on repairs</div>
+            </div>
+            <div class="expense-card">
+                <div class="expense-label">This month expenses</div>
+                <div class="expense-value c-amber" id="monthlyExpenses">—</div>
+                <div class="expense-sub">repairs this month</div>
+            </div>
+            <div class="expense-card">
+                <div class="expense-label">This month collections</div>
+                <div class="expense-value c-green" id="monthlyCollections">—</div>
+                <div class="expense-sub">rent received</div>
+            </div>
+            <div class="expense-card">
+                <div class="expense-label">Net this month</div>
+                <div class="expense-value c-blue" id="netThisMonth">—</div>
+                <div class="expense-sub">collections − expenses</div>
+            </div>
+            <div class="expense-card">
+                <div class="expense-label">Annual collections</div>
+                <div class="expense-value c-green" id="annualCollections">—</div>
+                <div class="expense-sub">this year total</div>
+            </div>
+            <div class="expense-card">
+                <div class="expense-label">Total unpaid arrears</div>
+                <div class="expense-value c-red" id="totalArrears">—</div>
+                <div class="expense-sub">owed by tenants</div>
+            </div>
+            <div class="expense-card">
+                <div class="expense-label">Net overall</div>
+                <div class="expense-value c-blue" id="netCollections">—</div>
+                <div class="expense-sub">all collections − all expenses</div>
+            </div>
+        </div>
+
+        <div class="page-header">
+            <p style="color:var(--text-2);font-size:14px" id="repairCount">Loading...</p>
+            <button class="btn btn-primary" style="width:auto;padding:0 20px"
+                    onclick="openAddModal()">+ Log repair</button>
+        </div>
+
+        <div class="filters">
+            <button class="filter-btn active" data-filter="ALL"        onclick="setFilter(this)">All</button>
+            <button class="filter-btn" data-filter="PLUMBING"    onclick="setFilter(this)">🚿 Plumbing</button>
+            <button class="filter-btn" data-filter="ELECTRICAL"  onclick="setFilter(this)">⚡ Electrical</button>
+            <button class="filter-btn" data-filter="PAINTING"    onclick="setFilter(this)">🎨 Painting</button>
+            <button class="filter-btn" data-filter="CARPENTRY"   onclick="setFilter(this)">🪚 Carpentry</button>
+            <button class="filter-btn" data-filter="ROOFING"     onclick="setFilter(this)">🏗 Roofing</button>
+            <button class="filter-btn" data-filter="CLEANING"    onclick="setFilter(this)">🧹 Cleaning</button>
+            <button class="filter-btn" data-filter="SECURITY"    onclick="setFilter(this)">🔒 Security</button>
+            <button class="filter-btn" data-filter="GENERAL"     onclick="setFilter(this)">🔧 General</button>
+        </div>
+
+        <div class="repairs-grid" id="repairsGrid">
+            <div class="empty-state"><div class="icon">🛠</div><p>Loading...</p></div>
+        </div>
+    </main>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="repairModal" onclick="handleBackdrop(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="modalTitle">Log repair</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="form-group">
+            <label>Property</label>
+            <select id="repairProperty" onchange="loadUnits()">
+                <option value="">Select property...</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Unit <span style="color:var(--text-2);font-size:12px">(optional)</span></label>
+            <select id="repairUnit">
+                <option value="">Select unit...</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <div class="input-wrap">
+                <span class="icon">📝</span>
+                <input type="text" id="repairDesc"
+                       placeholder="e.g. Fixed leaking pipe in bathroom"/>
+            </div>
+        </div>
+        <div class="two-col">
+            <div class="form-group">
+                <label>Category</label>
+                <select id="repairCategory">
+                    <option value="PLUMBING">🚿 Plumbing</option>
+                    <option value="ELECTRICAL">⚡ Electrical</option>
+                    <option value="PAINTING">🎨 Painting</option>
+                    <option value="CARPENTRY">🪚 Carpentry</option>
+                    <option value="ROOFING">🏗 Roofing</option>
+                    <option value="CLEANING">🧹 Cleaning</option>
+                    <option value="SECURITY">🔒 Security</option>
+                    <option value="GENERAL">🔧 General</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Repair date</label>
+                <div class="input-wrap">
+                    <span class="icon">📅</span>
+                    <input type="date" id="repairDate"/>
+                </div>
+            </div>
+        </div>
+        <div class="two-col">
+            <div class="form-group">
+                <label>Cost (KES)</label>
+                <div class="input-wrap">
+                    <span class="icon">💰</span>
+                    <input type="number" id="repairCost" placeholder="e.g. 5000"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Receipt no. <span style="color:var(--text-2);font-size:12px">(optional)</span></label>
+                <div class="input-wrap">
+                    <span class="icon">🧾</span>
+                    <input type="text" id="repairReceipt" placeholder="e.g. RCP-001"/>
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Repaired by</label>
+            <div class="input-wrap">
+                <span class="icon">👷</span>
+                <input type="text" id="repairBy" placeholder="e.g. Kamau Plumbers Ltd"/>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Notes <span style="color:var(--text-2);font-size:12px">(optional)</span></label>
+            <textarea id="repairNotes" placeholder="Additional details..."></textarea>
+        </div>
+        <div id="repairAlert" class="alert"></div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="saveRepairBtn" onclick="saveRepair()">
+                <span class="btn-text">Save repair log</span>
+                <div class="btn-spinner"></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/sidebar.js"></script>
+<script src="/js/notifications.js"></script>
+<script>
+    requireAuth();
+    const user = Auth.getUser();
+    if (user) {
+        document.getElementById('userName').textContent   = user.name;
+        document.getElementById('userAvatar').textContent = user.name[0].toUpperCase();
+    }
+
+    let allRepairs    = [];
+    let allProperties = [];
+    let currentFilter = 'ALL';
+    let editingId     = null;
+
+    const catIcon = {
+        PLUMBING:'🚿', ELECTRICAL:'⚡', PAINTING:'🎨',
+        CARPENTRY:'🪚', ROOFING:'🏗', CLEANING:'🧹',
+        SECURITY:'🔒', GENERAL:'🔧',
+    };
+
+    // ── Summary ──────────────────────────────────────────
+    async function loadSummary() {
+        try {
+            const [dash, exp] = await Promise.all([
+                apiFetch('/dashboard/stats'),
+                RepairAPI.expenseSummary(),
+            ]);
+            const fmt = n => 'KES ' + Number(n || 0).toLocaleString();
+
+            const monthly   = Number(dash.monthlyCollections || 0);
+            const annual    = Number(dash.annualCollections  || 0);
+            const totalColl = Number(dash.totalCollections   || 0);
+            const totalExp  = Number(exp.totalExpenses       || 0);
+            const monthExp  = Number(exp.monthlyExpenses     || 0);
+            const arrears   = Number(dash.totalArrears       || 0);
+            const netMonth  = monthly - monthExp;
+            const netTotal  = totalColl - totalExp;
+
+            document.getElementById('totalExpenses').textContent      = fmt(totalExp);
+            document.getElementById('monthlyExpenses').textContent    = fmt(monthExp);
+            document.getElementById('monthlyCollections').textContent = fmt(monthly);
+            document.getElementById('netThisMonth').textContent       = fmt(netMonth);
+            document.getElementById('annualCollections').textContent  = fmt(annual);
+            document.getElementById('totalArrears').textContent       = fmt(arrears);
+            document.getElementById('netCollections').textContent     = fmt(netTotal);
+
+            document.getElementById('netThisMonth').className =
+                'expense-value ' + (netMonth >= 0 ? 'c-green' : 'c-red');
+            document.getElementById('netCollections').className =
+                'expense-value ' + (netTotal >= 0 ? 'c-green' : 'c-red');
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Repairs ──────────────────────────────────────────
+    async function loadRepairs() {
+        try {
+            allRepairs = await RepairAPI.list();
+            renderRepairs();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderRepairs() {
+        const grid = document.getElementById('repairsGrid');
+        const list = currentFilter === 'ALL'
+            ? allRepairs
+            : allRepairs.filter(r => r.category === currentFilter);
+
+        const total = list.reduce((s, r) => s + Number(r.repairCost), 0);
+        document.getElementById('repairCount').textContent =
+            `${list.length} repair${list.length !== 1 ? 's' : ''} · Total: KES ${total.toLocaleString()}`;
+
+        if (list.length === 0) {
+            grid.innerHTML = `<div class="empty-state">
+        <div class="icon">🛠</div>
+        <p>No repair logs. Click <strong>+ Log repair</strong> to add one.</p>
+      </div>`;
+            return;
+        }
+
+        grid.innerHTML = list.map(r => `
+      <div class="repair-card">
+        <div class="repair-icon">${catIcon[r.category] || '🔧'}</div>
+        <div class="repair-body">
+          <div class="repair-desc">${r.description}</div>
+          <div class="cat-badge">${r.category}</div>
+          <div class="repair-meta">
+            <span>🏢 ${r.propertyName}</span>
+            ${r.unitNumber ? `<span>🏠 Unit ${r.unitNumber}</span>` : ''}
+            ${r.repairedBy ? `<span>👷 ${r.repairedBy}</span>` : ''}
+            <span>📅 ${r.repairDate}</span>
+            ${r.receiptNumber ? `<span>🧾 ${r.receiptNumber}</span>` : ''}
+          </div>
+          ${r.notes
+            ? `<p style="font-size:13px;color:var(--text-2);margin-top:6px">${r.notes}</p>`
+            : ''}
+          <div class="repair-actions">
+            <button class="btn-edit"
+              data-id="${r.id}" onclick="openEditModal(this)">✏️ Edit</button>
+            <button class="btn-del"
+              data-id="${r.id}" onclick="deleteRepair(this)">🗑 Delete</button>
+          </div>
+        </div>
+        <div class="repair-cost">KES ${Number(r.repairCost).toLocaleString()}</div>
+      </div>
+    `).join('');
+    }
+
+    function setFilter(btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderRepairs();
+    }
+
+    // ── Properties & units ───────────────────────────────
+    async function loadPropertiesIntoModal() {
+        allProperties = await PropertyAPI.list();
+        const sel = document.getElementById('repairProperty');
+        sel.innerHTML = '<option value="">Select property...</option>' +
+            allProperties.map(p =>
+                `<option value="${p.id}">${p.name} — ${p.location}</option>`
+            ).join('');
+    }
+
+    async function loadUnits() {
+        const pid = document.getElementById('repairProperty').value;
+        const sel = document.getElementById('repairUnit');
+        sel.innerHTML = '<option value="">Select unit (optional)...</option>';
+        if (!pid) return;
+        try {
+            const units = await PropertyAPI.getUnits(parseInt(pid));
+            sel.innerHTML += units.map(u =>
+                `<option value="${u.id}">Unit ${u.houseNumber} — ${u.category.replace(/_/g,' ')}</option>`
+            ).join('');
+        } catch (err) { console.error(err); }
+    }
+
+    // ── Add modal ────────────────────────────────────────
+    async function openAddModal() {
+        editingId = null;
+        document.getElementById('modalTitle').textContent = 'Log repair';
+        document.getElementById('repairDesc').value       = '';
+        document.getElementById('repairCategory').value   = 'GENERAL';
+        document.getElementById('repairDate').value       =
+            new Date().toISOString().split('T')[0];
+        document.getElementById('repairCost').value       = '';
+        document.getElementById('repairBy').value         = '';
+        document.getElementById('repairReceipt').value    = '';
+        document.getElementById('repairNotes').value      = '';
+        document.getElementById('repairAlert').className  = 'alert';
+        document.getElementById('repairUnit').innerHTML   =
+            '<option value="">Select unit...</option>';
+        await loadPropertiesIntoModal();
+        document.getElementById('repairProperty').value = '';
+        document.getElementById('repairModal').classList.add('open');
+    }
+
+    // ── Edit modal ───────────────────────────────────────
+    async function openEditModal(btn) {
+        const id = parseInt(btn.dataset.id);
+        const r  = allRepairs.find(x => x.id === id);
+        if (!r) return;
+        editingId = id;
+        document.getElementById('modalTitle').textContent = 'Edit repair';
+        document.getElementById('repairDesc').value       = r.description;
+        document.getElementById('repairCategory').value   = r.category;
+        document.getElementById('repairDate').value       = r.repairDate;
+        document.getElementById('repairCost').value       = r.repairCost;
+        document.getElementById('repairBy').value         = r.repairedBy || '';
+        document.getElementById('repairReceipt').value    = r.receiptNumber || '';
+        document.getElementById('repairNotes').value      = r.notes || '';
+        document.getElementById('repairAlert').className  = 'alert';
+        await loadPropertiesIntoModal();
+        document.getElementById('repairProperty').value = r.propertyId;
+        await loadUnits();
+        if (r.unitId) document.getElementById('repairUnit').value = r.unitId;
+        document.getElementById('repairModal').classList.add('open');
+    }
+
+    function closeModal() {
+        document.getElementById('repairModal').classList.remove('open');
+        editingId = null;
+    }
+
+    function handleBackdrop(e) {
+        if (e.target === document.getElementById('repairModal')) closeModal();
+    }
+
+    // ── Save ─────────────────────────────────────────────
+    async function saveRepair() {
+        const btn   = document.getElementById('saveRepairBtn');
+        const alert = document.getElementById('repairAlert');
+        const pid   = document.getElementById('repairProperty').value;
+        const desc  = document.getElementById('repairDesc').value.trim();
+        const cost  = document.getElementById('repairCost').value;
+        const date  = document.getElementById('repairDate').value;
+
+        if (!pid || !desc || !cost || !date) {
+            alert.textContent = 'Property, description, cost and date are required';
+            alert.className   = 'alert alert-error show';
+            return;
+        }
+
+        const uid = document.getElementById('repairUnit').value;
+        const body = {
+            propertyId:    parseInt(pid),
+            unitId:        uid ? parseInt(uid) : null,
+            description:   desc,
+            category:      document.getElementById('repairCategory').value,
+            repairDate:    date,
+            repairCost:    parseFloat(cost),
+            repairedBy:    document.getElementById('repairBy').value.trim(),
+            receiptNumber: document.getElementById('repairReceipt').value.trim() || null,
+            notes:         document.getElementById('repairNotes').value.trim()   || null,
+        };
+
+        btn.classList.add('loading'); btn.disabled = true;
+        try {
+            editingId
+                ? await RepairAPI.update(editingId, body)
+                : await RepairAPI.create(body);
+            closeModal();
+            await Promise.all([loadRepairs(), loadSummary()]);
+        } catch (err) {
+            alert.textContent = err.message;
+            alert.className   = 'alert alert-error show';
+        } finally {
+            btn.classList.remove('loading'); btn.disabled = false;
+        }
+    }
+
+    // ── Delete ───────────────────────────────────────────
+    async function deleteRepair(btn) {
+        const id = parseInt(btn.dataset.id);
+        const r  = allRepairs.find(x => x.id === id);
+        if (!confirm(`Delete repair: "${r?.description}"?`)) return;
+        try {
+            await RepairAPI.delete(id);
+            await Promise.all([loadRepairs(), loadSummary()]);
+        } catch (err) { alert(err.message); }
+    }
+
+    // ── Init ─────────────────────────────────────────────
+    loadSummary();
+    loadRepairs();
+</script>
+</body>
+</html>

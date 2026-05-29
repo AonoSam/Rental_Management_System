@@ -1,11 +1,16 @@
 package com.rental.rental_system.notification;
 
+import com.rental.rental_system.payment.ArrearsStatus;
 import com.rental.rental_system.user.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.rental.rental_system.user.UserRepository;
+import com.rental.rental_system.tenant.TenantRepository;
+import com.rental.rental_system.payment.ArrearsRepository;
+import com.rental.rental_system.notification.NotificationService;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +24,8 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final TenantRepository tenantRepository;
+    private final ArrearsRepository arrearsRepository;
 
     // ── Send a notification to a user ────────────────────
     @Transactional
@@ -83,43 +90,100 @@ public class NotificationService {
         });
     }
 
-    // ── Helpers called from other services ───────────────
-    public void paymentReceived(User user, String amount,
+    // ── Payment received — notify tenant AND all admins ──
+    public void paymentReceived(User tenantUser, String amount,
                                 String code, String month) {
-        send(user, NotificationType.PAYMENT_RECEIVED,
+        // Notify tenant
+        send(tenantUser, NotificationType.PAYMENT_RECEIVED,
                 "✅ Payment Confirmed",
                 "Your rent payment of KES " + amount + " for " + month +
                         " has been received. M-Pesa code: " + code);
+
+        // Notify all admins
+        notifyAllAdmins(NotificationType.PAYMENT_RECEIVED,
+                "💰 Rent Payment Received",
+                tenantUser.getName() + " paid KES " + amount +
+                        " for " + month + ". M-Pesa code: " + code);
     }
 
-    public void paymentFailed(User user, String amount, String reason) {
-        send(user, NotificationType.PAYMENT_FAILED,
+    // ── Payment failed — notify tenant AND all admins ────
+    public void paymentFailed(User tenantUser, String amount,
+                              String reason) {
+        // Notify tenant
+        send(tenantUser, NotificationType.PAYMENT_FAILED,
                 "❌ Payment Failed",
                 "Your payment of KES " + amount + " failed. " +
                         (reason != null ? "Reason: " + reason : "Please try again."));
+
+        // Notify all admins
+        notifyAllAdmins(NotificationType.PAYMENT_FAILED,
+                "❌ Payment Failed",
+                tenantUser.getName() + "'s payment of KES " + amount +
+                        " failed. " + (reason != null ? reason : ""));
     }
 
-    public void maintenanceUpdated(User user, String issue,
+    // ── Maintenance reported — notify admin AND caretaker ─
+    public void maintenanceReported(User tenantUser, String issue,
+                                    String propertyName,
+                                    String unitNumber,
+                                    Long propertyId) {
+        String msg = tenantUser.getName() + " (Unit " + unitNumber +
+                ", " + propertyName + ") reported: " + issue;
+
+        // Notify all admins
+        notifyAllAdmins(NotificationType.MAINTENANCE_UPDATE,
+                "🔧 New Maintenance Request", msg);
+
+        // Notify assigned caretaker for this property
+        if (propertyId != null) {
+            userRepository.findByRole(
+                            com.rental.rental_system.user.Role.CARETAKER)
+                    .stream()
+                    .filter(c -> c.getAssignedProperty() != null
+                            && c.getAssignedProperty().getId().equals(propertyId))
+                    .forEach(caretaker -> send(caretaker,
+                            NotificationType.MAINTENANCE_UPDATE,
+                            "🔧 New Maintenance Request", msg));
+        }
+    }
+
+    // ── Maintenance updated — notify tenant ──────────────
+    public void maintenanceUpdated(User tenantUser, String issue,
                                    String status, String notes) {
-        send(user, NotificationType.MAINTENANCE_UPDATE,
+        send(tenantUser, NotificationType.MAINTENANCE_UPDATE,
                 "🔧 Maintenance Update",
                 "Your request '" + issue + "' is now: " +
                         status.replace("_", " ") +
                         (notes != null && !notes.isEmpty() ? ". Note: " + notes : ""));
     }
 
-    public void welcomeTenant(User user) {
-        send(user, NotificationType.ACCOUNT_CREATED,
+    // ── Welcome new tenant — notify tenant AND admin ─────
+    public void welcomeTenant(User tenantUser) {
+        send(tenantUser, NotificationType.ACCOUNT_CREATED,
                 "🎉 Welcome to RentEase",
-                "Your account has been created. You can now log in, " +
-                        "view your unit details and pay rent.");
+                "Your account has been created. You can now log in " +
+                        "and pay rent.");
+
+        notifyAllAdmins(NotificationType.ACCOUNT_CREATED,
+                "👤 New Tenant Registered",
+                tenantUser.getName() + " (" + tenantUser.getEmail() +
+                        ") has been registered as a tenant.");
     }
 
+    // ── Rent reminder ─────────────────────────────────────
     public void rentReminder(User user, String amount, String month) {
         send(user, NotificationType.RENT_REMINDER,
                 "⚠️ Rent Due",
                 "Your rent of KES " + amount + " for " + month +
                         " is due. Please pay via M-Pesa.");
+    }
+
+    // ── Internal — send to all admins ────────────────────
+    private void notifyAllAdmins(NotificationType type,
+                                 String title, String message) {
+        userRepository.findByRole(
+                        com.rental.rental_system.user.Role.ADMIN)
+                .forEach(admin -> send(admin, type, title, message));
     }
 
     // ── Admin sends notice to all tenants ─────────────────
@@ -162,5 +226,81 @@ public class NotificationService {
         List<Notification> all = notificationRepository
                 .findByUserIdOrderByCreatedAtDesc(userId);
         notificationRepository.deleteAll(all);
+    }
+
+    // Runs at 11:59 PM on the last day of every month
+    @Scheduled(cron = "0 59 23 L * *")
+    @Transactional
+    public void markOverduePayments() {
+        String thisMonth = java.time.YearMonth.now().toString();
+        log.info("Running overdue check for month: {}", thisMonth);
+
+        tenantRepository.findByStatus(
+                        com.rental.rental_system.tenant.TenantStatus.ACTIVE)
+                .forEach(tenant -> {
+                    // Check if tenant has unpaid/partial for this month
+                    arrearsRepository
+                            .findByTenantIdAndPaymentMonth(
+                                    tenant.getId(), thisMonth)
+                            .ifPresent(ar -> {
+                                if (ar.getStatus() == ArrearsStatus.PARTIAL) {
+                                    ar.setStatus(ArrearsStatus.OVERDUE);
+                                    arrearsRepository.save(ar);
+
+                                    // Send overdue notification
+                                    send(tenant.getUser(),
+                                            com.rental.rental_system.notification
+                                                    .NotificationType.RENT_REMINDER,
+                                            "🔴 Rent Overdue",
+                                            "Your rent for " + thisMonth +
+                                                    " is overdue. Balance: KES " +
+                                                    ar.getBalanceRemaining().toPlainString());
+                                }
+                            });
+
+                    // If no payment record at all — fully overdue
+                    boolean hasAnyPayment = arrearsRepository
+                            .findByTenantIdAndPaymentMonth(
+                                    tenant.getId(), thisMonth)
+                            .isPresent();
+
+                    if (!hasAnyPayment && tenant.getUnit() != null) {
+                        java.math.BigDecimal rentAmount =
+                                tenant.getUnit().getRentAmount();
+
+                        // Create overdue record
+                        arrearsRepository.save(
+                                com.rental.rental_system.payment.ArrearsRecord.builder()
+                                        .tenant(tenant)
+                                        .paymentMonth(thisMonth)
+                                        .rentAmount(rentAmount)
+                                        .amountPaid(java.math.BigDecimal.ZERO)
+                                        .arrearsAmount(rentAmount)
+                                        .carriedArrears(
+                                                tenant.getArrearsBalance() != null
+                                                        ? tenant.getArrearsBalance()
+                                                        : java.math.BigDecimal.ZERO)
+                                        .totalDue(rentAmount)
+                                        .balanceRemaining(rentAmount)
+                                        .status(ArrearsStatus.OVERDUE)
+                                        .build());
+
+                        // Add to tenant's arrears balance
+                        tenant.setArrearsBalance(
+                                (tenant.getArrearsBalance() != null
+                                        ? tenant.getArrearsBalance()
+                                        : java.math.BigDecimal.ZERO)
+                                        .add(rentAmount));
+                        tenantRepository.save(tenant);
+
+                        send(tenant.getUser(),
+                                com.rental.rental_system.notification
+                                        .NotificationType.RENT_REMINDER,
+                                "🔴 Rent Overdue",
+                                "Your rent of KES " +
+                                        rentAmount.toPlainString() +
+                                        " for " + thisMonth + " was not paid.");
+                    }
+                });
     }
 }

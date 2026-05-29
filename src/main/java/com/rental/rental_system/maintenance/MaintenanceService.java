@@ -4,7 +4,6 @@ import com.rental.rental_system.maintenance.dto.*;
 import com.rental.rental_system.notification.NotificationService;
 import com.rental.rental_system.tenant.Tenant;
 import com.rental.rental_system.tenant.TenantRepository;
-import com.rental.rental_system.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,25 +19,26 @@ import java.util.stream.Collectors;
 public class MaintenanceService {
 
     private final MaintenanceRepository maintenanceRepository;
-    private final TenantRepository tenantRepository;
-    private final NotificationService notificationService;
-    private final UserRepository userRepository;
+    private final TenantRepository      tenantRepository;
+    private final NotificationService   notificationService;
+    private final UserRepository        userRepository;
 
+    // ── Get all requests (admin/caretaker) ───────────────
     public List<MaintenanceResponse> getAll() {
         return maintenanceRepository.findAllByOrderByCreatedAtDesc()
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    // ── Get tenant's own requests ────────────────────────
     public List<MaintenanceResponse> getByTenantUserId(Long userId) {
         Tenant tenant = tenantRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Tenant not found"));
-
         return maintenanceRepository
                 .findByTenantIdOrderByCreatedAtDesc(tenant.getId())
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
-
+    // ── Create maintenance request ───────────────────────
     @Transactional
     public MaintenanceResponse create(MaintenanceRequestDto req, Long userId) {
         Tenant tenant = tenantRepository.findByUserId(userId)
@@ -50,65 +50,50 @@ public class MaintenanceService {
                 .issue(req.getIssue())
                 .description(req.getDescription())
                 .priority(req.getPriority() != null
-                        ? MaintenancePriority.valueOf(req.getPriority().toUpperCase())
+                        ? MaintenancePriority.valueOf(
+                        req.getPriority().toUpperCase())
                         : MaintenancePriority.MEDIUM)
                 .status(MaintenanceStatus.PENDING)
                 .build();
 
         maintenanceRepository.save(mr);
 
-        String unitInfo = tenant.getUnit() != null
-                ? tenant.getUnit().getHouseNumber() : "unknown unit";
-        String propertyInfo = tenant.getUnit() != null
-                ? tenant.getUnit().getProperty().getName() : "";
-        String msg = tenant.getUser().getName() + " (Unit " + unitInfo + ", "
-                + propertyInfo + ") reported: " + req.getIssue();
-
-        // Notify all admins
-        userRepository.findByRole(com.rental.rental_system.user.Role.ADMIN)
-                .forEach(admin -> notificationService.send(
-                        admin,
-                        com.rental.rental_system.notification.NotificationType.MAINTENANCE_UPDATE,
-                        "🔧 New Maintenance Request",
-                        msg));
-
-        // Notify assigned caretaker for this property
-        if (tenant.getUnit() != null) {
-            Long propertyId = tenant.getUnit().getProperty().getId();
-            userRepository.findByRole(
-                            com.rental.rental_system.user.Role.CARETAKER)
-                    .stream()
-                    .filter(c -> c.getAssignedProperty() != null
-                            && c.getAssignedProperty().getId().equals(propertyId))
-                    .forEach(caretaker -> notificationService.send(
-                            caretaker,
-                            com.rental.rental_system.notification.NotificationType.MAINTENANCE_UPDATE,
-                            "🔧 New Maintenance Request",
-                            msg));
-        }
+        // Notify admin + assigned caretaker
+        notificationService.maintenanceReported(
+                tenant.getUser(),
+                req.getIssue(),
+                tenant.getUnit() != null
+                        ? tenant.getUnit().getProperty().getName()
+                        : "Unknown",
+                tenant.getUnit() != null
+                        ? tenant.getUnit().getHouseNumber()
+                        : "Unknown",
+                tenant.getUnit() != null
+                        ? tenant.getUnit().getProperty().getId()
+                        : null
+        );
 
         return toResponse(mr);
     }
 
+    // ── Update status ────────────────────────────────────
     @Transactional
-    public MaintenanceResponse updateStatus(Long id, String status, String notes) {
-
+    public MaintenanceResponse updateStatus(Long id,
+                                            String status,
+                                            String notes) {
         MaintenanceRequest mr = maintenanceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
 
         mr.setStatus(MaintenanceStatus.valueOf(status.toUpperCase()));
 
-        if (notes != null) {
-            mr.setNotes(notes);
-        }
+        if (notes != null) mr.setNotes(notes);
 
-        if (mr.getStatus() == MaintenanceStatus.COMPLETED) {
+        if (mr.getStatus() == MaintenanceStatus.COMPLETED)
             mr.setResolvedAt(LocalDateTime.now());
-        }
 
         MaintenanceRequest updated = maintenanceRepository.save(mr);
 
-        // Send notification after status update
+        // Notify tenant of status change
         notificationService.maintenanceUpdated(
                 updated.getTenant().getUser(),
                 updated.getIssue(),
@@ -119,32 +104,33 @@ public class MaintenanceService {
         return toResponse(updated);
     }
 
+    // ── Stats ────────────────────────────────────────────
     public Map<String, Object> getStats() {
         return Map.of(
-                "pending", maintenanceRepository.countByStatus(MaintenanceStatus.PENDING),
-                "inProgress", maintenanceRepository.countByStatus(MaintenanceStatus.IN_PROGRESS),
-                "completed", maintenanceRepository.countByStatus(MaintenanceStatus.COMPLETED)
+                "pending",    maintenanceRepository
+                        .countByStatus(MaintenanceStatus.PENDING),
+                "inProgress", maintenanceRepository
+                        .countByStatus(MaintenanceStatus.IN_PROGRESS),
+                "completed",  maintenanceRepository
+                        .countByStatus(MaintenanceStatus.COMPLETED)
         );
     }
 
+    // ── Mapper ───────────────────────────────────────────
     private MaintenanceResponse toResponse(MaintenanceRequest mr) {
-
         return MaintenanceResponse.builder()
                 .id(mr.getId())
                 .tenantId(mr.getTenant().getId())
                 .tenantName(mr.getTenant().getUser().getName())
                 .unitNumber(mr.getUnit() != null
-                        ? mr.getUnit().getHouseNumber()
-                        : null)
+                        ? mr.getUnit().getHouseNumber() : null)
                 .propertyName(mr.getUnit() != null
-                        ? mr.getUnit().getProperty().getName()
-                        : null)
+                        ? mr.getUnit().getProperty().getName() : null)
                 .issue(mr.getIssue())
                 .description(mr.getDescription())
                 .status(mr.getStatus().name())
                 .priority(mr.getPriority() != null
-                        ? mr.getPriority().name()
-                        : null)
+                        ? mr.getPriority().name() : null)
                 .notes(mr.getNotes())
                 .createdAt(mr.getCreatedAt())
                 .resolvedAt(mr.getResolvedAt())

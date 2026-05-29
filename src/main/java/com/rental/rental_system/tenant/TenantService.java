@@ -2,6 +2,7 @@ package com.rental.rental_system.tenant;
 
 import com.rental.rental_system.notification.NotificationService;
 import com.rental.rental_system.payment.ArrearsRepository;
+import com.rental.rental_system.payment.ArrearsStatus;
 import com.rental.rental_system.property.*;
 import com.rental.rental_system.tenant.dto.*;
 import com.rental.rental_system.user.*;
@@ -11,7 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.rental.rental_system.payment.PaymentRepository;
 import com.rental.rental_system.payment.PaymentStatus;
-import com.rental.rental_system.maintenance.MaintenanceRepository ;
+import com.rental.rental_system.maintenance.MaintenanceRepository;
+import com.rental.rental_system.payment.ArrearsRecord;
+import com.rental.rental_system.payment.PaymentStatus;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +32,7 @@ public class TenantService {
     private final NotificationService notificationService;
     private final MaintenanceRepository maintenanceRepository;
     private final ArrearsRepository arrearsRepository;
+
 
     // ── Get all tenants ──────────────────────────────────
     public List<TenantResponse> getAllTenants() {
@@ -228,7 +232,7 @@ public class TenantService {
 
         // Get payment summary
         long totalPayments = paymentRepository.countByTenantIdAndStatus(
-                tenant.getId(), com.rental.rental_system.payment.PaymentStatus.SUCCESS);
+                tenant.getId(), com.rental.rental_system.payment.PaymentStatus.PAID);
         java.math.BigDecimal totalPaid = paymentRepository
                 .sumSuccessfulPaymentsByTenantId(tenant.getId());
 
@@ -237,7 +241,7 @@ public class TenantService {
         boolean paidThisMonth = paymentRepository
                 .existsByTenantIdAndPaymentMonthAndStatus(
                         tenant.getId(), thisMonth,
-                        com.rental.rental_system.payment.PaymentStatus.SUCCESS);
+                        com.rental.rental_system.payment.PaymentStatus.PAID);
 
         return java.util.Map.of(
                 "tenant",        toResponse(tenant),
@@ -292,30 +296,70 @@ public class TenantService {
         Tenant tenant = tenantRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("Tenant not found"));
 
+        String thisMonth = java.time.YearMonth.now().toString();
+
         java.math.BigDecimal rentAmount = tenant.getUnit() != null
                 ? tenant.getUnit().getRentAmount()
                 : java.math.BigDecimal.ZERO;
 
-        java.math.BigDecimal arrears = tenant.getArrearsBalance() != null
-                ? tenant.getArrearsBalance()
-                : java.math.BigDecimal.ZERO;
+        // Check if there's a partial payment this month
+        java.util.Optional<ArrearsRecord> thisMonthRecord =
+                arrearsRepository.findByTenantIdAndPaymentMonth(
+                        tenant.getId(), thisMonth);
 
-        java.math.BigDecimal credit = tenant.getCreditBalance() != null
-                ? tenant.getCreditBalance()
-                : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal amountPaidThisMonth = thisMonthRecord
+                .map(ArrearsRecord::getAmountPaid)
+                .orElse(java.math.BigDecimal.ZERO);
 
-        java.math.BigDecimal totalDue = rentAmount
-                .add(arrears)
-                .subtract(credit)
-                .max(java.math.BigDecimal.ZERO);
+        java.math.BigDecimal balanceThisMonth = thisMonthRecord
+                .map(ArrearsRecord::getBalanceRemaining)
+                .orElse(java.math.BigDecimal.ZERO);
+
+        // Previous months arrears (not this month)
+        java.math.BigDecimal previousArrears =
+                tenant.getArrearsBalance() != null
+                        ? tenant.getArrearsBalance()
+                        : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal creditBalance =
+                tenant.getCreditBalance() != null
+                        ? tenant.getCreditBalance()
+                        : java.math.BigDecimal.ZERO;
+
+        // What they still owe THIS month
+        java.math.BigDecimal totalDue;
+        String paymentStatus;
+
+        if (thisMonthRecord.isPresent()) {
+            ArrearsRecord ar = thisMonthRecord.get();
+            totalDue = ar.getBalanceRemaining()
+                    .subtract(creditBalance)
+                    .max(java.math.BigDecimal.ZERO);
+            paymentStatus = ar.getStatus().name(); // PARTIAL, CLEARED, OVERDUE
+        } else {
+            // No payment yet this month
+            totalDue = rentAmount
+                    .add(previousArrears)
+                    .subtract(creditBalance)
+                    .max(java.math.BigDecimal.ZERO);
+            paymentStatus = "PENDING";
+        }
+
+        boolean fullyPaid = thisMonthRecord
+                .map(ar -> ar.getStatus() == ArrearsStatus.CLEARED
+                        || ar.getStatus() == ArrearsStatus.EXCESS)
+                .orElse(false);
 
         return Map.of(
-                "rentAmount",    rentAmount,
-                "arrears",       arrears,
-                "creditBalance", credit,
-                "totalDue",      totalDue,
-                "hasArrears",    arrears.compareTo(java.math.BigDecimal.ZERO) > 0,
-                "hasCredit",     credit.compareTo(java.math.BigDecimal.ZERO) > 0
+                "rentAmount",         rentAmount,
+                "amountPaidThisMonth",amountPaidThisMonth,
+                "balanceThisMonth",   balanceThisMonth,
+                "previousArrears",    previousArrears,
+                "creditBalance",      creditBalance,
+                "totalDue",           totalDue,
+                "paymentStatus",      paymentStatus,
+                "fullyPaid",          fullyPaid,
+                "currentMonth",       thisMonth
         );
     }
 }
